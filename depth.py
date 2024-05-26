@@ -1,5 +1,9 @@
 import cv2
 import numpy as np
+import tkinter as tk
+from PIL import Image, ImageTk
+import matplotlib
+matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
 
 def main():
@@ -38,23 +42,34 @@ def main():
     desplay_disparity_map(disparity_map)
     
     points_3D = cv2.reprojectImageTo3D(disparity_map, Q)
+    
+    points_3D[points_3D == float('inf')] = 0
+    points_3D[points_3D == float('-inf')] = 0
+
     depth_map = points_3D[:, :,2]
 
-    max_depth = np.max(depth_map)
+    #max_depth = np.max(depth_map)
 
-    print('max_depth: ',max_depth)
+    #print('max_depth: ',max_depth)
 
-    if max_depth > 0:
-        normalized_depth_map = depth_map / max_depth
-    else:
-        normalized_depth_map = depth_map
+    #if max_depth > 0:
+    #    normalized_depth_map = depth_map / max_depth
+    #else:
+    #    normalized_depth_map = depth_map
 
-    cv2.imshow('Depth Map', normalized_depth_map)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.imshow('Depth Map', normalized_depth_map)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
-    plt.imshow(disparity_map, 'gray')
-    plt.show()
+    #focal_length = camera_matrix_0[0,0]
+    #baseline = np.linalg.norm(T)
+    
+    #depth_map = (focal_length* baseline) / (disparity_map + 1e-6)
+    
+    #normalized_depth_map = cv2.normalize(points_3D, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    
+    display_depth_map(depth_map)
+
     
 def take_images(camera0_id,camera1_id):
 
@@ -120,17 +135,29 @@ def take_images(camera0_id,camera1_id):
         raise ValueError('take_images error')
 
 def desplay_disparity_map(disparity_map):
-    
-    plt.figure(figsize=(13,3))
-    plt.imshow(disparity_map)
-    plt.colorbar()
-    plt.show()
 
-    plt.figure(figsize=(13,3))
-    plt.imshow(disparity_map/16)
+    try:
+        plt.figure(figsize=(20,10))
+        plt.title("disparity map")
+        plt.imshow(disparity_map)
+        plt.colorbar()
+        plt.show()
+        
+        plt.figure(figsize=(20,10))
+        plt.title("disparity map / 16")
+        plt.imshow(disparity_map/16)
+        plt.colorbar()
+        plt.show()
+    except Exception as e:
+        print(f'[desplay_disparity_map][error] {e}')
+
+def display_depth_map(depth):
+
+    plt.figure(figsize=(20,10))
+    plt.title("depth map")
+    plt.imshow(depth,cmap='jet')
     plt.colorbar()
     plt.show()
-    
     
 if __name__ == "__main__":
     main()

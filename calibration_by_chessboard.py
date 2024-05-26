@@ -2,18 +2,17 @@ import cv2
 import numpy as np
 import glob
 
-
 def main():
     # chessboard_size = (7,10)
-    # square_size_mm = 24
-
-    calibration((7,10),"calibration.yaml","./calibration_images/camera_0")
+    
+    calibration((7,10),1,"calibration.yaml","./calibration_images/single/camera_0")
 
     return 0
 
-def calibration(chessboard_size,file_name,calibration_images_folder):
+def calibration(chessboard_size,square_size_mm,file_name,calibration_images_folder):
+
     objp = np.zeros(( chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )
-    objp[:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2)
+    objp[:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2) * square_size_mm
 
     objpoints = []
     imgpoints = []

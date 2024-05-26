@@ -1,4 +1,4 @@
-import image
+import single_image
 import calibration_by_chessboard
 import cv2
 import numpy as np
@@ -7,9 +7,6 @@ def main():
 
     chessboard_size = (7,10)
     square_size_mm = 24
-    
-    #image.take(0,'./calibration_images/camera_0')
-    #image.take(2,'./calibration_images/camera_2')
 
     objp = np.zeros(( chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )
     objp[:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2) * square_size_mm
@@ -17,16 +14,22 @@ def main():
     objpoints = []
     imgpoints_0 = []    
     imgpoints_1 = []    
+        
+    single_image.take(0,'./calibration_images/single/camera_0')
+    single_image.take(2,'./calibration_images/single/camera_1')
 
+    camera_matrix_0, dist_coeffs_0 = calibration_by_chessboard.calibration((7,10),24,'calibration_0.yaml', './calibration_images/single/camera_0')
+    camera_matrix_1, dist_coeffs_1 = calibration_by_chessboard.calibration((7,10),24,'calibration_1.yaml', './calibration_images/single/camera_1')
+    
     image_list = take_images(0,2)
-
+    
     used_images_num = 0
 
     image_size = (0,0)
     
     for image in image_list:
-        img_0 = cv2.imread(f'./calibration_images/camera_0/{image}')
-        img_1 = cv2.imread(f'./calibration_images/camera_1/{image}')
+        img_0 = cv2.imread(f'./calibration_images/stereo/camera_0/{image}')
+        img_1 = cv2.imread(f'./calibration_images/stereo/camera_1/{image}')
 
         height_0, width_0 = img_0.shape[:2]
         height_1, width_1 = img_1.shape[:2]
@@ -63,27 +66,6 @@ def main():
 
     print('Used images size :',image_size)
     print('Used images num :',used_images_num)
-
-    ret_0, camera_matrix_0, dist_coeffs_0, rvecs_0, tvecs_0 = calibrate_single_camera(objpoints, imgpoints_0, gray_0)
-    ret_1, camera_matrix_1, dist_coeffs_1, rvecs_1, tvecs_1 = calibrate_single_camera(objpoints, imgpoints_1, gray_1)
-      
-    mean_error_0 = 0
-
-    for i in range(len(objpoints)):
-        imgpoints_0_2, _ = cv2.projectPoints(objpoints[i], rvecs_0[i], tvecs_0[i], camera_matrix_0, dist_coeffs_0)
-        error_0 = cv2.norm(imgpoints_0[i], imgpoints_0_2, cv2.NORM_L2) / len(imgpoints_0_2)
-        mean_error_0 += error_0
-        
-    print("total error of camera 0 : {}".format(mean_error_0/len(objpoints)))
-
-    mean_error_1 = 0
-
-    for i in range(len(objpoints)):
-        imgpoints_1_2, _ = cv2.projectPoints(objpoints[i], rvecs_1[i], tvecs_1[i], camera_matrix_1, dist_coeffs_1)
-        error_1 = cv2.norm(imgpoints_0[i], imgpoints_1_2, cv2.NORM_L2) / len(imgpoints_1_2)
-        mean_error_1 += error_1
-        
-    print("total error of camera 1 : {}".format(mean_error_1/len(objpoints)))
 
     ret, optimized_camera_matrix_0, optimized_dist_coeffs_0, optimized_camera_matrix_1, optimized_dist_coeffs_1, R, T, E, F = cv2.stereoCalibrate(objpoints,imgpoints_0,imgpoints_1,camera_matrix_0, dist_coeffs_0,camera_matrix_1, dist_coeffs_1,gray_0.shape[::-1],criteria=(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_COUNT, 30, 1e-6),flags=cv2.CALIB_FIX_INTRINSIC)
 
@@ -130,8 +112,8 @@ def take_images(camera0_id,camera1_id):
             key = cv2.waitKey(1)
 
             if key == ord('s'):
-                cv2.imwrite(f'./calibration_images/camera_0/image_{image_count}.png',frame0)
-                cv2.imwrite(f'./calibration_images/camera_1/image_{image_count}.png',frame1)
+                cv2.imwrite(f'./calibration_images/stereo/camera_0/image_{image_count}.png',frame0)
+                cv2.imwrite(f'./calibration_images/stereo/camera_1/image_{image_count}.png',frame1)
                 image_list.append(f'image_{image_count}.png')
                 print(f'Image {image_count} saved.')
                 image_count += 1

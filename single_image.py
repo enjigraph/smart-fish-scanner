@@ -1,7 +1,7 @@
 import cv2
 
 def main():
-    take(0,'./calibration_images/camera_0')
+    take(0,'./calibration_images/single/camera_0')
 
 def take(camera_id,folder_name):
 
