@@ -3,7 +3,6 @@ import numpy as np
 import glob
 
 def main():
-    # chessboard_size = (7,10)
     
     calibration((7,10),1,"calibration.yaml","./calibration_images/single/camera_0")
 

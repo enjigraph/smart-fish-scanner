@@ -6,7 +6,7 @@ import numpy as np
 def main():
 
     chessboard_size = (7,10)
-    square_size_mm = 24
+    square_size_mm = 16
 
     objp = np.zeros(( chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )
     objp[:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2) * square_size_mm
@@ -18,8 +18,8 @@ def main():
     single_image.take(0,'./calibration_images/single/camera_0')
     single_image.take(2,'./calibration_images/single/camera_1')
 
-    camera_matrix_0, dist_coeffs_0 = calibration_by_chessboard.calibration((7,10),24,'calibration_0.yaml', './calibration_images/single/camera_0')
-    camera_matrix_1, dist_coeffs_1 = calibration_by_chessboard.calibration((7,10),24,'calibration_1.yaml', './calibration_images/single/camera_1')
+    camera_matrix_0, dist_coeffs_0 = calibration_by_chessboard.calibration((7,10),square_size_mm,'calibration_0.yaml', './calibration_images/single/camera_0')
+    camera_matrix_1, dist_coeffs_1 = calibration_by_chessboard.calibration((7,10),square_size_mm,'calibration_1.yaml', './calibration_images/single/camera_1')
     
     image_list = take_images(0,2)
     
@@ -67,7 +67,7 @@ def main():
     print('Used images size :',image_size)
     print('Used images num :',used_images_num)
 
-    ret, optimized_camera_matrix_0, optimized_dist_coeffs_0, optimized_camera_matrix_1, optimized_dist_coeffs_1, R, T, E, F = cv2.stereoCalibrate(objpoints,imgpoints_0,imgpoints_1,camera_matrix_0, dist_coeffs_0,camera_matrix_1, dist_coeffs_1,gray_0.shape[::-1],criteria=(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_COUNT, 30, 1e-6),flags=cv2.CALIB_FIX_INTRINSIC)
+    ret, optimized_camera_matrix_0, optimized_dist_coeffs_0, optimized_camera_matrix_1, optimized_dist_coeffs_1, R, T, E, F = cv2.stereoCalibrate(objpoints,imgpoints_0,imgpoints_1,camera_matrix_0, dist_coeffs_0,camera_matrix_1, dist_coeffs_1,gray_0.shape[::-1],criteria=(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_COUNT, 30, 1e-6),flags=(cv2.CALIB_FIX_INTRINSIC | cv2.CALIB_USE_INTRINSIC_GUESS))
 
     print("R",R)
     print("T",T)
@@ -75,10 +75,10 @@ def main():
     print("F",F)
 
     cv_file = cv2.FileStorage('stereo_calibration.yaml', cv2.FILE_STORAGE_WRITE)
-    cv_file.write("camera_matrix_0", camera_matrix_0)
-    cv_file.write("dist_coeffs_0",dist_coeffs_0)
-    cv_file.write("camera_matrix_1", camera_matrix_1)
-    cv_file.write("dist_coeffs_1",dist_coeffs_1)
+    cv_file.write("camera_matrix_0", optimized_camera_matrix_0)
+    cv_file.write("dist_coeffs_0",optimized_dist_coeffs_0)
+    cv_file.write("camera_matrix_1", optimized_camera_matrix_1)
+    cv_file.write("dist_coeffs_1",optimized_dist_coeffs_1)
     cv_file.write("R",R)
     cv_file.write("T",T)
     cv_file.write("E",E)
