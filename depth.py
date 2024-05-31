@@ -56,7 +56,7 @@ def main():
 
     check_characteristic_point(rectified_img_0,rectified_img_1)
 
-    stereo = cv2.StereoSGBM_create(minDisparity=200, numDisparities=16*9, blockSize=3, P1=8*3*5**2, P2=32*3*5**2, disp12MaxDiff=1, uniquenessRatio=10, speckleWindowSize=100, speckleRange=32)
+    stereo = cv2.StereoSGBM_create(minDisparity=0, numDisparities=16*9, blockSize=5, P1=8*3*5**2, P2=32*3*5**2, disp12MaxDiff=1, uniquenessRatio=15, speckleWindowSize=100, speckleRange=32)
 
     disparity_map = stereo.compute(rectified_img_0, rectified_img_1).astype(np.float32) / 16.0
     disparity_map = cv2.medianBlur(disparity_map,5)
@@ -70,11 +70,11 @@ def main():
     
     points_3D[points_3D == float('inf')] = 0
     points_3D[points_3D == float('-inf')] = 0
-
-    depth_map = np.where(disparity_map > disparity_map.min(), points_3D[:, :,2],0)
+    
+    depth_map = np.where(disparity_map > disparity_map.min(),  points_3D[:, :,2],0)
 
     display_depth_map(depth_map)
-    
+
     abs_z = np.abs(points_3D[:,:,2])
     
     nonzero_points = points_3D[abs_z != 0]
@@ -83,8 +83,10 @@ def main():
     nearest_nonzero_point = nonzero_points[min_distance_index]
 
     print(f'Nearest NonZero Point: {nearest_nonzero_point} mm')
+
     
     display_3d_map(points_3D[:, :,0],points_3D[:, :,1],points_3D[:, :,2])
+    
     
 def take_images(camera0_id,camera1_id):
 
@@ -253,13 +255,14 @@ def display_depth_map(depth):
     #plt.close()
 
 def display_3d_map(X, Y, Z):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(20,10))
     ax = fig.add_subplot(111,projection='3d')
     ax.scatter(X,Y,Z, c=Z, cmap='viridis',marker='o')
 
     ax.set_xlabel('X [mm]')
     ax.set_ylabel('Y [mm]')
     ax.set_zlabel('Z [mm]')
+
     plt.savefig("3d_map.png")
     plt.show(block=False)
     plt.pause(5)
