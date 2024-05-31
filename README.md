@@ -19,10 +19,10 @@ Step 4. Measuring the length of the target from an image
 ```python
 python3 measurement.py
 ```  
-※Precautions for use
-Measurement requires AR markers to be placed at the four corners,
-By running create_marker.py, you can generate the AR markers you need. 
-Place them in the order 0, 1, 2, 3, clockwise from the upper left.
+※Precautions for use  
+Measurement requires AR markers to be placed at the four corners.  
+By running create_marker.py, you can generate the AR markers you need.   
+Place them in the order 0, 1, 2, 3, clockwise from the upper left.  
 
 
 ### When using a stereo camera
