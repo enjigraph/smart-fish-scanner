@@ -84,9 +84,7 @@ def main():
 
     print(f'Nearest NonZero Point: {nearest_nonzero_point} mm')
 
-    
-    display_3d_map(points_3D[:, :,0],points_3D[:, :,1],points_3D[:, :,2])
-    
+    #display_3d_map(points_3D[:, :,0],points_3D[:, :,1],points_3D[:, :,2])
     
 def take_images(camera0_id,camera1_id):
 
@@ -249,10 +247,9 @@ def display_depth_map(depth):
     plt.imshow(depth,cmap='jet')
     plt.colorbar()
     plt.savefig("depth.png")
-    plt.show()
-    #plt.show(block=False)
-    #plt.pause(5)
-    #plt.close()
+    plt.show(block=False)
+    plt.pause(5)
+    plt.close()
 
 def display_3d_map(X, Y, Z):
     fig = plt.figure(figsize=(20,10))

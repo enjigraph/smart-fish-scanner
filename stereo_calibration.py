@@ -11,9 +11,9 @@ def main():
     objp = np.zeros(( chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )
     objp[:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2) * square_size_mm
 
-    objpoints = []
-    imgpoints_0 = []    
-    imgpoints_1 = []    
+    obj_points = []
+    img_points_0 = []    
+    img_points_1 = []    
         
     single_image.take(0,'./calibration_images/single/camera_0')
     single_image.take(2,'./calibration_images/single/camera_1')
@@ -26,7 +26,7 @@ def main():
     used_images_num = 0
 
     image_size = (0,0)
-    
+
     for image in image_list:
         img_0 = cv2.imread(f'./calibration_images/stereo/camera_0/{image}')
         img_1 = cv2.imread(f'./calibration_images/stereo/camera_1/{image}')
@@ -52,13 +52,13 @@ def main():
         
         used_images_num += 1
         
-        objpoints.append(objp)
+        obj_points.append(objp)
         
         sub_pixel_centers_0 = cv2.cornerSubPix(gray_0, centers_0, (5,5), (-1,-1),(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
         sub_pixel_centers_1 = cv2.cornerSubPix(gray_1, centers_1, (5,5), (-1,-1),(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
         
-        imgpoints_0.append(sub_pixel_centers_0)
-        imgpoints_1.append(sub_pixel_centers_1)
+        img_points_0.append(sub_pixel_centers_0)
+        img_points_1.append(sub_pixel_centers_1)
         
         cv2.imshow('img_0',cv2.drawChessboardCorners(img_0, chessboard_size, sub_pixel_centers_0, ret_0))
         cv2.imshow('img_1',cv2.drawChessboardCorners(img_1, chessboard_size, sub_pixel_centers_1, ret_1))
@@ -67,18 +67,22 @@ def main():
     print('Used images size :',image_size)
     print('Used images num :',used_images_num)
 
-    ret, optimized_camera_matrix_0, optimized_dist_coeffs_0, optimized_camera_matrix_1, optimized_dist_coeffs_1, R, T, E, F = cv2.stereoCalibrate(objpoints,imgpoints_0,imgpoints_1,camera_matrix_0, dist_coeffs_0,camera_matrix_1, dist_coeffs_1,gray_0.shape[::-1],criteria=(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_COUNT, 30, 1e-6),flags=(cv2.CALIB_FIX_INTRINSIC | cv2.CALIB_USE_INTRINSIC_GUESS))
+    ret, optimized_camera_matrix_0, optimized_dist_coeffs_0, optimized_camera_matrix_1, optimized_dist_coeffs_1, R, T, E, F = cv2.stereoCalibrate(obj_points,img_points_0,img_points_1,camera_matrix_0, dist_coeffs_0,camera_matrix_1, dist_coeffs_1,gray_0.shape[::-1],criteria=(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_COUNT, 30, 1e-6),flags=cv2.CALIB_FIX_INTRINSIC)
 
+    stereo_calibration_error = get_calibration_error(chessboard_size,img_points_0,img_points_1,camera_matrix_0,dist_coeffs_0,camera_matrix_1,dist_coeffs_1,F)
+
+    print(f'stereo calibration error: {stereo_calibration_error} pixel')
+    
     print("R",R)
     print("T",T)
     print("E",E)
     print("F",F)
 
     cv_file = cv2.FileStorage('stereo_calibration.yaml', cv2.FILE_STORAGE_WRITE)
-    cv_file.write("camera_matrix_0", optimized_camera_matrix_0)
-    cv_file.write("dist_coeffs_0",optimized_dist_coeffs_0)
-    cv_file.write("camera_matrix_1", optimized_camera_matrix_1)
-    cv_file.write("dist_coeffs_1",optimized_dist_coeffs_1)
+    cv_file.write("camera_matrix_0", camera_matrix_0)
+    cv_file.write("dist_coeffs_0",dist_coeffs_0)
+    cv_file.write("camera_matrix_1", camera_matrix_1)
+    cv_file.write("dist_coeffs_1",dist_coeffs_1)
     cv_file.write("R",R)
     cv_file.write("T",T)
     cv_file.write("E",E)
@@ -141,7 +145,35 @@ def calibrate_single_camera(objpoints,imgpoints,gray):
 
     return (ret, camera_matrix, dist_coeffs, rvecs, tvecs)
 
-    
-    
+def get_calibration_error(chessboard_size,img_points_0,img_points_1,camera_matrix_0,dist_coeffs_0,camera_matrix_1,dist_coeffs_1,F):
+
+    total_error = 0.0
+
+    for img_point_0, img_point_1 in zip(img_points_0, img_points_1):
+
+        undistort_img_point_0 = cv2.undistortPoints(img_point_0, camera_matrix_0, dist_coeffs_0, None, camera_matrix_0)
+        undistort_img_point_1 = cv2.undistortPoints(img_point_1, camera_matrix_1, dist_coeffs_1, None, camera_matrix_1)
+
+        epilinesForpoints_0 = cv2.computeCorrespondEpilines(img_point_0,1,F)
+        epilinesForpoints_1 = cv2.computeCorrespondEpilines(img_point_1,2,F)
+
+        for i in range(chessboard_size[0] * chessboard_size[1]):
+            x0 = img_point_0[i][0][0]
+            y0 = img_point_0[i][0][1]
+            a0 = epilinesForpoints_0[i][0][0]
+            b0 = epilinesForpoints_0[i][0][1]
+            c0 = epilinesForpoints_0[i][0][2]
+
+            x1 = img_point_1[i][0][0]
+            y1 = img_point_1[i][0][1]
+            a1 = epilinesForpoints_1[i][0][0]
+            b1 = epilinesForpoints_1[i][0][1]
+            c1 = epilinesForpoints_1[i][0][2]
+
+            total_error += abs(a1*x0 + b1*y0 + c1) + abs(a0*x1 + b0*y1 + c0) 
+
+    return total_error / (len(img_point_0) * chessboard_size[0] * chessboard_size[1])
+
+            
 if __name__ == "__main__":
     main()
