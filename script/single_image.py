@@ -1,7 +1,7 @@
 import cv2
 
 def main():
-    take(0,'./calibration_images/single/camera_0')
+    take('/dev/video0','./calibration_images/single/camera_0')
 
 def take(camera_id,folder_name):
 
@@ -10,8 +10,12 @@ def take(camera_id,folder_name):
 
         cap = cv2.VideoCapture(camera_id)
 
+        if not cap.isOpened():
+             print("camera is not opened")
+             exit()
+
         image_count = 0
-        
+
         while True:
             ret, frame = cap.read()
             

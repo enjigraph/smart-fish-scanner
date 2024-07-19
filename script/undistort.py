@@ -14,6 +14,17 @@ print("Distortion coefficients:\n",dist_coeffs)
 
 cap = cv2.VideoCapture(0)
 
+print(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+print(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
+cap.set(cv2.CAP_PROP_FPS, 20)
+
+print(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+print(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    
+
 while True:
     ret, frame = cap.read()
 
@@ -28,7 +39,7 @@ while True:
     if key == ord('q'):
         break    
     elif key == ord('s'):
-        cv2.imwrite(f'./target.png',frame)
+        cv2.imwrite(f'./target.jpg',frame,[cv2.IMWRITE_JPEG_QUALITY,100])
         print(f'Image captured.')
 
         h,w = frame.shape[:2]
