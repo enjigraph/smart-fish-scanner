@@ -1,7 +1,8 @@
-import tkinter as tk
-from datetime import datetime
 import threading
 import time
+import tkinter as tk
+from datetime import datetime
+from tkinter import messagebox
 
 import lib.measurement as measurement
 import lib.utils as utils
@@ -69,8 +70,13 @@ class Measuring(tk.Frame):
                 folder_path = f'./data/{self.today}/images/{count}'
                 utils.make_folder(folder_path)
                 
-                camera.adjust_to_marker()
+                status = camera.adjust_to_marker()
 
+                if status == "camera error":
+                    messagebox.showinfo("カメラを再接続してください。再接続のあと、「OK」を押してください。")
+                    status = camera.adjust_to_marker()
+                            
+                
                 calibration_file_path = f'./data/{self.today}/calibration/calibration.yaml'
                 
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
