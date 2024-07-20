@@ -27,7 +27,8 @@ class Measurement(tk.Frame):
         self.species_entry.pack(pady=5)
         
         tk.Button(self,text="測定を開始する",command=self.start).pack(pady=10)
-        
+        tk.Button(self,text="戻る",command=self.controller.show_home).pack(pady=30)
+
     def start(self):
         self.controller.shared_data["measurement_date"] = self.measurement_date_entry.get()
         self.controller.shared_data["capture_date"] = self.capture_date_entry.get()

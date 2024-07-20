@@ -5,6 +5,7 @@ from pages.preparing_for_measurement import PreparingForMeasurement
 from pages.measurement import Measurement
 from pages.measuring import Measuring
 from pages.genital_measurement import GenitalMeasurement
+from pages.stomach_measurement import StomachMeasurement
 from pages.move_camera import MoveCamera
 
 class PageManager(tk.Tk):
@@ -23,7 +24,7 @@ class PageManager(tk.Tk):
         self.frames = {}
         self.shared_data = {}
 
-        for F in (Home, MoveCamera, PreparingForMeasurement, Measurement, Measuring, GenitalMeasurement): 
+        for F in (Home, MoveCamera, PreparingForMeasurement, Measurement, Measuring, GenitalMeasurement, StomachMeasurement): 
             page_name = F.__name__
             frame = F(parent=self.contanier, controller=self)
             self.frames[page_name] = frame
@@ -56,6 +57,9 @@ class PageManager(tk.Tk):
 
     def show_genital_measurement(self):
         self.show_frame("GenitalMeasurement")
+
+    def show_stomach_measurement(self):
+        self.show_frame("StomachMeasurement")
 
     def show_custom_popup(self,title,message):
         popup = Custom_popup(self, title, message)

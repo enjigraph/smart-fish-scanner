@@ -1,15 +1,18 @@
 import threading
 import time
+import os
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox
 
 import lib.measurement as measurement
 import lib.utils as utils
+import lib.voice as voice
 
 from lib.camera import Camera
 from lib.digital_scale import DigitalScale
 from lib.sensor import Sensor
+
 
 class Measuring(tk.Frame):
     def __init__(self, parent, controller, *args, **kwargs):
@@ -50,19 +53,26 @@ class Measuring(tk.Frame):
         threading.Thread(target=self.loop).start()
 
     def loop(self):
-        count = 0
+        count = sum(os.path.isdir(os.path.join(f'./data/{self.today}/images/',name)) for name in os.listdir(f'./data/{self.today}/images/'))
         camera = Camera()
         digital_scale = DigitalScale()
         sensor = Sensor()
-
+       
         last_weight = 0
         camera.on()
-        
+
         while self.is_running:
             ir_value, distance = sensor.get_data()
             #print(f'IR Value: {ir_value}, Distance: {distance}, lock:{self.lock}')
 
             if ir_value == "0" and not self.lock:
+                voice.start()
+
+                if digital_scale.get_stable_data_length() < 2:
+                    voice.retry()
+                    self.lock = False
+                    continue
+                
                 self.status_label.config(text=f'{count+1}つ目のデータを測定中')
                 print(f'start to get data :{count}')
                 self.lock = True
@@ -73,7 +83,7 @@ class Measuring(tk.Frame):
                 status = camera.adjust_to_marker()
 
                 if status == "camera error":
-                    messagebox.showinfo("カメラを再接続してください。再接続のあと、「OK」を押してください。")
+                    messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
                     status = camera.adjust_to_marker()
                             
                 
@@ -96,12 +106,16 @@ class Measuring(tk.Frame):
                 last_weight = weight
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
+
+                voice.finish()
+
             else:
                 now_weight = digital_scale.get_data()
                 if count > 0 and now_weight and last_weight - now_weight > 1.0:
                     print(f'clear weight: {last_weight}')
                     digital_scale.clear_stable_data()
                     last_weight = 0
+                    voice.remove()
                     
                 digital_scale.update_stable_data()
                 time.sleep(0.1)

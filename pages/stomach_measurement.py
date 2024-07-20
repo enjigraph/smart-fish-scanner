@@ -11,7 +11,7 @@ from lib.camera import Camera
 from lib.digital_scale import DigitalScale
 from lib.sensor import Sensor
 
-class GenitalMeasurement(tk.Frame):
+class StomachMeasurement(tk.Frame):
     def __init__(self, parent, controller, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
 
@@ -21,7 +21,7 @@ class GenitalMeasurement(tk.Frame):
         
         self.is_running = False
 
-        self.status_label = tk.Label(self, text="生殖器の測定を行う")
+        self.status_label = tk.Label(self, text="胃の測定を行う")
         self.status_label.pack(pady=20)
 
         self.start_button = tk.Button(self,text="測定開始",command=self.start)
@@ -53,7 +53,7 @@ class GenitalMeasurement(tk.Frame):
         self.return_button.pack(pady=10)
 
     def loop(self):
-        count = utils.count_column_elements(f'./data/{self.today}/result.csv','genital_weight') 
+        count = utils.count_column_elements(f'./data/{self.today}/result.csv','stomach_weight') 
         sensor = Sensor()
         camera = Camera()
         digital_scale = DigitalScale()
@@ -81,13 +81,13 @@ class GenitalMeasurement(tk.Frame):
                 
                 camera.adjust_to_marker()
                 
-                original_image = measurement.get_image(f'{folder_path}/genital_image.png')
+                original_image = measurement.get_image(f'{folder_path}/stomach_image.png')
 
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
 
-                data = {'genital_weight':weight}
-                measurement.add_genital_weight_to_file(f'./data/{self.today}/result.csv',count,data)
+                data = {'stomach_weight':weight}
+                measurement.add_stomach_weight_to_file(f'./data/{self.today}/result.csv',count,data)
                 
                 camera.move_to_distance(20)
                 count += 1
@@ -97,7 +97,7 @@ class GenitalMeasurement(tk.Frame):
                 last_weight = weight
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
-
+                
                 voice.finish()
 
             else:
@@ -107,7 +107,7 @@ class GenitalMeasurement(tk.Frame):
                     digital_scale.clear_stable_data()
                     last_weight = 0
                     voice.remove()
-                                        
+
                 digital_scale.update_stable_data()
                 time.sleep(0.1)
 
