@@ -77,11 +77,17 @@ class GenitalMeasurement(tk.Frame):
                 print(f'start to get data: {count}')
                 self.lock = True
 
-                folder_path = f'./data/{self.today}/images/{count}'
+                folder_path = f'./data/{self.today}/images/{count}/genital'
+                utils.make_folder(folder_path)
                 
-                camera.adjust_to_marker()
+                status = camera.adjust_to_marker()
+                      
+                if status == "camera error":
+                    messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
+                    status = camera.adjust_to_marker()
                 
-                original_image = measurement.get_image(f'{folder_path}/genital_image.png')
+                original_image = measurement.get_image(f'{folder_path}/original_image.png')
+                undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
 
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')

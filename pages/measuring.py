@@ -61,6 +61,9 @@ class Measuring(tk.Frame):
         last_weight = 0
         camera.on()
 
+        check_weight = 0
+        check_full_length = 0
+
         while self.is_running:
             ir_value, distance = sensor.get_data()
             #print(f'IR Value: {ir_value}, Distance: {distance}, lock:{self.lock}')
@@ -77,7 +80,7 @@ class Measuring(tk.Frame):
                 print(f'start to get data :{count}')
                 self.lock = True
 
-                folder_path = f'./data/{self.today}/images/{count}'
+                folder_path = f'./data/{self.today}/images/{count}/full_body'
                 utils.make_folder(folder_path)
                 
                 status = camera.adjust_to_marker()
@@ -86,11 +89,8 @@ class Measuring(tk.Frame):
                     messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
                     status = camera.adjust_to_marker()
                             
-                
-                calibration_file_path = f'./data/{self.today}/calibration/calibration.yaml'
-                
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
-                undistorted_image = measurement.undistort_fisheye_image(original_image,calibration_file_path,folder_path)
+                undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
                 full_length, head_and_scales_length, fork_length = measurement.get_length(undistorted_image,folder_path)
                 print(f'full_length: {full_length}mm')
 
@@ -100,6 +100,9 @@ class Measuring(tk.Frame):
                 data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'full_length':[full_length],'weight':[weight],'image':[folder_path]}
                 measurement.save(f'./data/{self.today}/result.csv',data)
 
+                if abs(check_full_length - full_length) < 2 and abs(check_weight - weight) < 2:
+                    messagebox.showinfo("計測データに関するアラート","全長と重さが非常に近いデータが保存されました。")
+                    
                 camera.move_to_distance(20)
                 count += 1
 

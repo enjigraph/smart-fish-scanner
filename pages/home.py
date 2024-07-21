@@ -38,7 +38,15 @@ class Home(tk.Frame):
     def test_calibration(self):
         messagebox.showinfo("キャリブレーションの精度検証",'精度検証用シートを置いてください。')
 
-        Camera().move_to_distance(20)
+        camera = Camera()
+        camera.move_to_distance(20)
+
+        status = camera.adjust_to_marker()
+        
+        if status == "camera error":
+            messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
+            status = camera.adjust_to_marker()
+                            
 
         today = datetime.now().strftime('%Y-%m-%d')
 
