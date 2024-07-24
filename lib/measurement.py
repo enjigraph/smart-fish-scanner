@@ -72,7 +72,7 @@ def undistort_image(frame,calibration_file_path,folder_path):
        
     x,y,w,h = roi
     undistorted_frame = undistorted_frame[y:y+h, x:x+w]
-    self.show('Undistorted Image',undistorted_frame)
+    camera.show('Undistorted Image',undistorted_frame)
 
     cv2.imwrite(f'{folder_path}/undistorted_image.png',undistorted_frame)
     print(f'{folder_path}/undistorted_image.png saved.')
@@ -106,15 +106,14 @@ def get_length(frame,folder_path):
     
     square_size_mm = 24
     
-    trimmed_frame = detect_ar_marker(frame)
+    trimmed_frame = trim_ar_region(frame,folder_path)
 
-    cv2.imwrite(f'{folder_path}/trimmed_image.png',trimmed_frame)
-
-    full_length, x_head = get_full_length(trimmed_frame.copy(),folder_path)
+    full_length, x_head, x_tail = get_full_length(trimmed_frame.copy(),folder_path)
     
     head_and_scales_length = get_head_and_scales_length(trimmed_frame.copy(),x_head,folder_path)
 
-    fork_length = get_fork_length(trimmed_frame.copy(),folder_path)
+    fork_length = get_fork_length(x_head,x_tail,trimmed_frame.copy(),folder_path)
+    print(f'fork_length: {fork_length}mm')
     
     return full_length, head_and_scales_length, fork_length
 
@@ -123,8 +122,7 @@ def get_full_length(frame,folder_path):
 
     gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
     
-    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,11, 2)
-    #edges = cv2.Canny(gray, 50, 150)
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,9, 2)
  
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -134,7 +132,7 @@ def get_full_length(frame,folder_path):
         cv2.drawContours(frame,[max_contour],-1, (0,255,0),1)
 
         cv2.namedWindow('Max Contor',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Max Contor',800,600)
+        cv2.resizeWindow('Max Contor',640,480)
         cv2.imshow('Max Contor',frame)
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
@@ -153,15 +151,14 @@ def get_full_length(frame,folder_path):
         cv2.line(frame, (x_min[0],50), (x_max[0],50), (0,0,255), 1)        
         cv2.putText(frame,"Length: {: .2f} mm".format(dist), (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255),1)
         cv2.namedWindow('Image with Head and Tail',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Image with Head and Tail',800,600)
-
+        cv2.resizeWindow('Image with Head and Tail',640,480)
         cv2.imshow('Image with Head and Tail',frame)
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
         
         cv2.imwrite(f'{folder_path}/full_length.png',frame)
 
-        return dist, x_min[0]
+        return dist, x_min[0], x_max[0]
     
     else:
         print("No contours found")
@@ -170,11 +167,109 @@ def get_full_length(frame,folder_path):
 def get_head_and_scales_length(frame,x_head,folder_path):
     return 0
         
-def get_fork_length(frame,folder_path):
-    return 0
+def get_fork_length(x_head,x_tail,frame,folder_path):
+    
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+    blurred = cv2.GaussianBlur(gray, (5,5),0)
+    edges = cv2.Canny(blurred, 50, 150)
 
+    contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-def detect_ar_marker(frame):
+    if contours:
+
+        external_contours = []
+        x_min = None
+
+        for i, contour in enumerate(contours):
+            x, y, w, h = cv2.boundingRect(contour)
+
+            if x > x_tail*0.8 and x < x_tail and max(calculate_change_rates(contour)) > 1.5:
+                h = hierarchy[0][i]
+                
+                if h[3] == -1 and get_angle_count(contour) > 3:
+                    external_contours.append(contour)
+
+                    for point in contour:
+                        if not x_min or point[0][0] < x_min:
+                            x_min = point[0][0]
+
+        dist = x_min[0] - x_head
+        print(f'distance : {dist} mm')
+
+        cv2.drawContours(frame,external_contours, -1, (0,255,0),1)
+        cv2.line(frame, (x_head,50), (x_min,50), (0,0,255), 1)        
+        cv2.putText(frame,"Length: {: .2f} mm".format(dist), (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255),1)
+        cv2.namedWindow('Image with Head and Tail',cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Image with Head and Tail',800,600)
+        cv2.imshow('Image with Head and Tail',frame)
+        cv2.waitKey(1000)
+        cv2.destroyAllWindows()
+        
+        cv2.imwrite(f'{folder_path}/head_and_fork.length.png',frame)
+    
+    else:
+        print("No contours found")
+
+def calculate_max_distance_from_point(point,contour):
+    max_distance = 0
+    farthest_point = point
+    for p in contour:
+        distance =np.linalg.norm(np.array(point) - np.array(p[0]))
+        if distance > max_distance:
+            max_distance = distance
+            farthest_point = p[0]
+    return farthest_point, max_distance
+
+def calculate_change_rates(contour):
+    change_rates = []
+    num_points = len(contour)
+    for i in range(num_points):
+        curr_point = contour[i][0]
+
+        farthest_point, max_distance = calculate_max_distance_from_point(curr_point,contour)
+        
+        dx = abs(curr_point[0] - farthest_point[0])
+        dy = abs(curr_point[1] - farthest_point[1])
+
+        if dx != 0:
+            change_rate = dy / dx
+        else:
+            change_rate = 0
+            
+        change_rates.append(change_rate)
+
+    return change_rates
+
+def get_angle_count(contour):
+    epsilon = 0.02 * cv2.arcLength(contour, True)
+    approx = cv2.approxPolyDP(contour, epsilon, True)
+    
+    count = 0
+    for i in range(len(approx)):
+        prev_point = approx[i-1][0]
+        curr_point = approx[i][0]
+        next_point = approx[(i+1) % len(approx)][0]
+        
+        vec1 = np.array(curr_point) - np.array(prev_point)
+        vec2 = np.array(next_point) - np.array(curr_point)
+        
+        dot_product = np.dot(vec1,vec2)
+        magnitude1 = np.linalg.norm(vec1)
+        magnitude2 = np.linalg.norm(vec2)
+        
+        angle = np.arccos(dot_product / (magnitude1*magnitude2))* 180 /np.pi
+
+        if angle > 150:
+            count += 1
+
+        dx1 = curr_point[0] - prev_point[0]
+        dy1 = curr_point[1] - prev_point[1]
+        dx2 = next_point[0] - curr_point[0]
+        dy2 = next_point[1] - curr_point[1]
+
+    return count
+        
+def trim_ar_region(frame,folder_path):
 
     #img = cv2.imread(image)
 
@@ -212,14 +307,25 @@ def detect_ar_marker(frame):
     marker_coordinates = np.float32(m)
     true_coordinates = np.float32([[0,0], [width,0], [width,height], [0,height]])
 
-    mat = cv2.getPerspectiveTransform(marker_coordinates, true_coordinates)
+    save_trimmed_image(folder_path,frame,marker_coordinates)
     
+    mat = cv2.getPerspectiveTransform(marker_coordinates, true_coordinates)
+
     frame_trans = cv2.warpPerspective(frame, mat, (width,height))
 
     cv2.namedWindow('Transform Image',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Transform Image',800,600)
+    cv2.resizeWindow('Transform Image',640,480)
     cv2.imshow('Transform Image',frame_trans)
     cv2.waitKey(1000)
     cv2.destroyAllWindows()
 
     return frame_trans
+
+def save_trimmed_image(folder_path,frame,marker_coordinates):
+
+    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
+    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
+    
+    mat = cv2.getPerspectiveTransform(marker_coordinates, np.float32([[0,0], [width,0], [width,height], [0,height]]))
+
+    cv2.imwrite(f'{folder_path}/trimmed_image.png',cv2.warpPerspective(frame, mat, (width,height)))

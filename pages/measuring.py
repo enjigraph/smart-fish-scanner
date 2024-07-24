@@ -31,11 +31,18 @@ class Measuring(tk.Frame):
         
         self.capture_location_label = tk.Label(self, text="")
         self.capture_location_label.pack(pady=5)
+
+        self.latitude_label = tk.Label(self, text="")
+        self.latitude_label.pack(pady=5)
+
+        self.longitude_label = tk.Label(self, text="")
+        self.longitude_label.pack(pady=5)
         
         self.species_label = tk.Label(self, text="")
         self.species_label.pack(pady=5)
 
         self.finish_button = tk.Button(self,text="測定を終了する",command=self.stop)
+        self.finish_button.pack(pady=5)
         self.return_button = tk.Button(self,text="戻る",command=self.reset)
         
         
@@ -43,6 +50,8 @@ class Measuring(tk.Frame):
         self.measurement_date_label.config(text="測定日: "+self.controller.shared_data.get("measurement_date",""))
         self.capture_date_label.config(text="採集日: "+self.controller.shared_data.get("capture_date",""))
         self.capture_location_label.config(text="採集場所: "+self.controller.shared_data.get("capture_location",""))
+        self.latitude_label.config(text="緯度: "+self.controller.shared_data.get("latitude",""))
+        self.longitude_label.config(text="経度: "+self.controller.shared_data.get("longitude",""))
         self.species_label.config(text="種: "+self.controller.shared_data.get("species",""))
 
         self.today = datetime.now().strftime('%Y-%m-%d')
@@ -82,9 +91,9 @@ class Measuring(tk.Frame):
 
                 folder_path = f'./data/{self.today}/images/{count}/full_body'
                 utils.make_folder(folder_path)
-                
-                status = camera.adjust_to_marker()
 
+                status = camera.adjust_to_marker()
+  
                 if status == "camera error":
                     messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
                     status = camera.adjust_to_marker()
@@ -97,10 +106,11 @@ class Measuring(tk.Frame):
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
 
-                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'full_length':[full_length],'weight':[weight],'image':[folder_path]}
+                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'weight':[weight],'image':[folder_path]}
                 measurement.save(f'./data/{self.today}/result.csv',data)
 
                 if abs(check_full_length - full_length) < 2 and abs(check_weight - weight) < 2:
+                    voice.data_alert()
                     messagebox.showinfo("計測データに関するアラート","全長と重さが非常に近いデータが保存されました。")
                     
                 camera.move_to_distance(20)
@@ -110,6 +120,9 @@ class Measuring(tk.Frame):
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
 
+                check_weight = weight
+                check_full_length = full_length
+                
                 voice.finish()
 
             else:
@@ -133,8 +146,8 @@ class Measuring(tk.Frame):
 
 
     def reset(self):
-
-        self.return_button.pack(pady=10)
-        self.finish_button.pack_forget()
+        self.status_label.config(text="測定開始の準備ができました。\nイワシを置いてから、赤外線センサーで開始のタイミングを指示してください。")
+        self.return_button.pack_forget()
+        self.finish_button.pack(pady=10)
         
         self.controller.show_home()

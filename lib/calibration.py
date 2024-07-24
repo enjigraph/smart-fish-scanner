@@ -20,8 +20,9 @@ def take_images(folder_path):
             if not ret:
                 break
 
-            camera.show('Frame', frame)
-
+            cv2.namedWindow('Frame',cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('Frame',640,480)
+            cv2.imshow('Frame', frame)
             key = cv2.waitKey(1)
 
             if key == ord('s'):
@@ -30,7 +31,6 @@ def take_images(folder_path):
                 count += 1
             elif key == ord('q'):
                 break
-
 
         camera.release()
         cv2.destroyAllWindows()
@@ -178,6 +178,7 @@ def test(folder_path):
     #x,y,w,h = roi
     #undistorted_frame = undistorted_frame[y:y+h, x:x+w]
     camera.show('Undistorted Image',undistorted_frame)
+    camera.release()
     
     trimmed_frame = detect_ar_marker(undistorted_frame)
 
@@ -194,7 +195,7 @@ def test(folder_path):
         cv2.drawContours(trimmed_frame,[max_contour],-1, (0,255,0),1)
 
         cv2.namedWindow('Max Contor',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Max Contor',800,600)
+        cv2.resizeWindow('Max Contor',640,480)
         cv2.imshow('Max Contor',trimmed_frame)
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
@@ -213,8 +214,7 @@ def test(folder_path):
         cv2.line(trimmed_frame, (x_min[0],50), (x_max[0],50), (0,0,255), 1)        
         cv2.putText(trimmed_frame,"Length: {: .2f} mm".format(dist), (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255),1)
         cv2.namedWindow('Image with Head and Tail',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Image with Head and Tail',800,600)
-
+        cv2.resizeWindow('Image with Head and Tail',640,480)
         cv2.imshow('Image with Head and Tail',trimmed_frame)
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
@@ -271,7 +271,7 @@ def detect_ar_marker(frame):
     frame_trans = cv2.warpPerspective(frame, mat, (width,height))
 
     cv2.namedWindow('Transform Image',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Transform Image',800,600)
+    cv2.resizeWindow('Transform Image',640,480)
     cv2.imshow('Transform Image',frame_trans)
     cv2.waitKey(1000)
     cv2.destroyAllWindows()

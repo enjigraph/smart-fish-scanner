@@ -9,6 +9,10 @@ def finish():
     pygame.mixer.music.load('./voice/finish.mp3')
     pygame.mixer.music.play()
 
+def data_alert():
+    pygame.mixer.music.load('./voice/data_alert.mp3')
+    pygame.mixer.music.play()
+
 def retry():
     pygame.mixer.music.load('./voice/retry.mp3')
     pygame.mixer.music.play()

@@ -21,6 +21,14 @@ class Measurement(tk.Frame):
         tk.Label(self, text="採集場所").pack(pady=5)
         self.capture_location_entry = tk.Entry(self)
         self.capture_location_entry.pack(pady=5)
+
+        tk.Label(self, text="緯度").pack(pady=5)
+        self.latitude_entry = tk.Entry(self)
+        self.latitude_entry.pack(pady=5)
+
+        tk.Label(self, text="経度").pack(pady=5)
+        self.longitude_entry = tk.Entry(self)
+        self.longitude_entry.pack(pady=5)
         
         tk.Label(self, text="種").pack(pady=5)
         self.species_entry = tk.Entry(self)
@@ -33,6 +41,8 @@ class Measurement(tk.Frame):
         self.controller.shared_data["measurement_date"] = self.measurement_date_entry.get()
         self.controller.shared_data["capture_date"] = self.capture_date_entry.get()
         self.controller.shared_data["capture_location"] = self.capture_location_entry.get()
+        self.controller.shared_data["latitude"] = self.latitude_entry.get()
+        self.controller.shared_data["longitude"] = self.longitude_entry.get()
         self.controller.shared_data["species"] = self.species_entry.get()
         
         self.controller.show_preparing_for_measurement()

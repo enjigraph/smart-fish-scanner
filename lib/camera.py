@@ -30,6 +30,8 @@ class Camera:
             self.cap = cv2.VideoCapture(0)
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+            #print(decode_fourcc(self.cap.get(cv2.CAP_PROP_FOURCC)Z)Z)
             print(f'{self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)},{self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}')
         
     def release(self):
@@ -38,14 +40,20 @@ class Camera:
             self.cap = None
         
     def get_image(self):
-        if self.cap is None or not self.cap.isOpened():
-            print('camera is not detected')
-            self.cap = cv2.VideoCapture(0)
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
-            print(f'{self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)},{self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}')
+        try:
+            if self.cap is None or not self.cap.isOpened():
+                print('camera is not detected')
+                self.cap = cv2.VideoCapture(0)
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 3840)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
+                #print(decode_fourcc(self.cap.get(cv2.CAP_PROP_FOURCC)))
+                print(f'{self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)},{self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}')
 
-        return self.cap.read()
+            return self.cap.read()
+        except Exception as e:
+            print(f'[get_image][error] {e}')
+            return None,None
         
     def move_stepper(self,steps):
 
@@ -97,7 +105,7 @@ class Camera:
                 continue
 
             #self.show('ArUco Markers',frame)
-            
+
             shift = self.determine_movement(frame)
 
             if shift == "up":
@@ -108,7 +116,7 @@ class Camera:
                 self.move_stepper(6000)
             elif shift == "center":
                 print("CENTER")            
-                self.move_to_distance(30)
+                self.move_to_distance(25)
             elif shift == "skip":
                 print("SKIP")
             elif shift == "not_moving":
@@ -151,6 +159,10 @@ class Camera:
 
         try:
 
+            if image is None:
+                print("image is None")
+                return "skip"
+            
             height, width = image.shape[:2]
 
             dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
@@ -159,7 +171,7 @@ class Camera:
             gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
 
             corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(gray, dictionary,parameters=parameters)
-
+            
             if ids is None:
                 print("id is None")
                 return "center"
@@ -171,7 +183,7 @@ class Camera:
             image_width_markers = cv2.aruco.drawDetectedMarkers(image.copy(), corners, ids)
 
             self.show('Detected ArUco Markers',image_width_markers)
-        
+
             m = np.empty((4,2))
         
             corners2 = [np.empty((1,4,2)) for _ in range(4)]
@@ -195,8 +207,19 @@ class Camera:
         except:
             return "skip"
 
-    def show(self,title,frame):
-        cv2.imshow(title,frame)
-        cv2.waitKey(1000)
-        cv2.destroyAllWindows()
+    def show(self,title,frame):        
+        try:
+            if frame is None:
+                print("frame is None")
+                return 0;
+            
+            cv2.namedWindow(title,cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(title,640,480)
+            cv2.imshow(title,frame)
+            cv2.waitKey(1000)
+            cv2.destroyAllWindows()
+        except Exception as e:
+            print(f'[show][error] {e}')
+
+        return 0
         

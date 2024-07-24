@@ -29,7 +29,7 @@ class StomachMeasurement(tk.Frame):
 
         self.finish_button = tk.Button(self,text="測定を終了する",command=self.stop)
 
-        self.return_button = tk.Button(self,text="戻る",command=self.controller.show_home)
+        self.return_button = tk.Button(self,text="戻る",command=self.reset)
         self.return_button.pack(pady=30)
 
     def start(self):
@@ -45,13 +45,6 @@ class StomachMeasurement(tk.Frame):
 
         threading.Thread(target=self.loop).start()
       
-    def stop(self):
-        self.status_label.config(text="測定を終了しました")
-        self.is_running = False
-
-        self.finish_button.pack_forget()
-        self.return_button.pack(pady=10)
-
     def loop(self):
         count = utils.count_column_elements(f'./data/{self.today}/result.csv','stomach_weight') 
         sensor = Sensor()
@@ -88,7 +81,8 @@ class StomachMeasurement(tk.Frame):
 
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
-
+                measurement.trim_ar_marker(undistorted_image,folder_path)
+                
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
 
@@ -118,3 +112,23 @@ class StomachMeasurement(tk.Frame):
                 time.sleep(0.1)
 
         camera.release()
+
+    def stop(self):
+        self.status_label.config(text="測定を終了しました")
+        self.is_running = False
+
+        self.finish_button.pack_forget()
+        self.return_button.pack(pady=10)
+
+        
+    def reset(self):
+        self.status_label.config(text="胃の測定を行う")
+        self.start_button.pack_forget()
+        self.return_button.pack_forget()
+        self.start_button.pack(pady=10)
+        self.return_button.pack(pady=10)
+
+        self.finish_button.pack_forget()
+        
+        self.controller.show_home()
+
