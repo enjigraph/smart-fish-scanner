@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import glob
+import lib.utils as utils
 from lib.camera import Camera
 
 camera = Camera()
@@ -231,8 +232,6 @@ def test(folder_path):
 def detect_ar_marker(frame):
 
     #img = cv2.imread(image)
-
-    x_dis, y_dis, size = 200, 150, 1
     
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     parameters = cv2.aruco.DetectorParameters()
@@ -259,6 +258,17 @@ def detect_ar_marker(frame):
     m[2] = corners2[2][0][0]
     m[3] = corners2[3][0][1]
 
+    qr_code_x_min = int((m[1][0]+m[0][0])//2 - 200)
+    qr_code_x_max = int((m[1][0]+m[0][0])//2 + 200)
+    qr_code_y_min = int(corners2[0][0][1][1] - 200)
+    qr_code_y_max = int(corners2[0][0][2][1] + 200)
+    
+    qr_code = utils.get_qr_code_data(frame[qr_code_y_min:qr_code_y_max,qr_code_x_min:qr_code_x_max])
+
+    x_dis = int(qr_code.split(',')[0]) if qr_code else 200  
+    y_dis = int(qr_code.split(',')[1]) if qr_code else 150
+    size = 1
+    
     width, height = (x_dis*size, y_dis*size)
     x_ratio = width / x_dis;
     y_ratio = height / y_dis;

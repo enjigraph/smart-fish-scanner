@@ -81,7 +81,7 @@ class GenitalMeasurement(tk.Frame):
                 
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
-                measurement.trim_ar_marker(undistorted_image,folder_path)
+                measurement.trim_ar_region(undistorted_image,folder_path)
                 
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
@@ -89,7 +89,7 @@ class GenitalMeasurement(tk.Frame):
                 data = {'genital_weight':weight}
                 measurement.add_genital_weight_to_file(f'./data/{self.today}/result.csv',count,data)
                 
-                camera.move_to_distance(20)
+                #camera.move_to_distance(20)
                 count += 1
 
                 time.sleep(1)

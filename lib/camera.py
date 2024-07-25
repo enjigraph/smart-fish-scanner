@@ -61,7 +61,11 @@ class Camera:
 
         if float(distance) > 38 and int(steps) < 0:
             print(f'Moved stepper reached to upper limit')
-            return 0
+            return 'reached to limit'
+
+        if float(distance) < 16 and int(steps) > 0:
+            print(f'Moved stepper reached to lower limit')
+            return 'reached to limit'
 
         command = f'{steps}\n'
         self.ser.write(command.encode())
@@ -199,7 +203,7 @@ class Camera:
             print(f'{m[0]}, {m[1]}, {m[2]}, {m[3]}')
             print(f'[{width*0.05},{height*0.05}], [{width*0.95},{height*0.05}], [{width*0.95},{height*0.95}], [{width*0.05},{height*0.95}]')
 
-            if m[0][0] > width*0.1 and m[0][1] > height*0.1 and m[1][0] < width*0.9 and m[1][1] > height*0.1 and m[2][0] < width*0.9 and m[2][1] < height*0.9 and m[3][0] > width*0.1 and m[3][1] < height*0.9:
+            if m[0][0] > width*0.15 and m[0][1] > height*0.15 and m[1][0] < width*0.85 and m[1][1] > height*0.15 and m[2][0] < width*0.85 and m[2][1] < height*0.85 and m[3][0] > width*0.15 and m[3][1] < height*0.85:
                 return "down"
 
             return "not_moving"

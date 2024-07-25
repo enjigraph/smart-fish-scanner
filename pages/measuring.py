@@ -113,7 +113,7 @@ class Measuring(tk.Frame):
                     voice.data_alert()
                     messagebox.showinfo("計測データに関するアラート","全長と重さが非常に近いデータが保存されました。")
                     
-                camera.move_to_distance(20)
+                #camera.move_to_distance(20)
                 count += 1
 
                 last_weight = weight
