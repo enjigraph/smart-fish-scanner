@@ -53,11 +53,8 @@ def get_image(file_path):
         return None
 
     cv2.imwrite(file_path,frame,[cv2.IMWRITE_JPEG_QUALITY,100])
-
-    cv2.destroyAllWindows()
     
     return frame
-
 
 def undistort_image(frame,calibration_file_path,folder_path):
     
@@ -73,8 +70,7 @@ def undistort_image(frame,calibration_file_path,folder_path):
        
     x,y,w,h = roi
     undistorted_frame = undistorted_frame[y:y+h, x:x+w]
-    camera.show('Undistorted Image',undistorted_frame)
-
+    
     cv2.imwrite(f'{folder_path}/undistorted_image.png',undistorted_frame)
     print(f'{folder_path}/undistorted_image.png saved.')
 
@@ -95,7 +91,6 @@ def undistort_fisheye_image(frame,calibration_file_path,folder_path):
        
     #x,y,w,h = roi
     #undistorted_frame = undistorted_frame[y:y+h, x:x+w]
-    camera.show('Undistorted Image',undistorted_frame)
     
     cv2.imwrite(f'{folder_path}/undistorted_image.png',undistorted_frame)
     print(f'{folder_path}/undistorted_image.png saved.')
@@ -104,26 +99,23 @@ def undistort_fisheye_image(frame,calibration_file_path,folder_path):
 
 
 def get_length(frame,folder_path):
-    
-    square_size_mm = 24
-    
-    trimmed_frame = trim_ar_region(frame,folder_path)
+        
+    trimmed_frame, x_ratio, y_ratio = trim_ar_region(frame,folder_path)
 
-    full_length, x_head, x_tail = get_full_length(trimmed_frame.copy(),folder_path)
+    full_length, x_head, x_tail, full_length_frame = get_full_length(trimmed_frame.copy(),folder_path, x_ratio, y_ratio)
     
-    head_and_scales_length = get_head_and_scales_length(trimmed_frame.copy(),x_head,folder_path)
+    head_and_scales_length, head_and_scales_length_frame = get_head_and_scales_length(x_head,x_tail,trimmed_frame.copy(),folder_path, x_ratio, y_ratio)
 
-    fork_length = get_fork_length(x_head,x_tail,trimmed_frame.copy(),folder_path)
-    print(f'fork_length: {fork_length}mm')
+    head_and_fork_length, head_and_fork_length_frame = get_head_and_fork_length(x_head,x_tail,trimmed_frame.copy(),folder_path, x_ratio, y_ratio)
     
-    return full_length, head_and_scales_length, fork_length
+    return full_length, head_and_scales_length, head_and_fork_length, full_length_frame, head_and_scales_length_frame, head_and_fork_length_frame
 
 
-def get_full_length(frame,folder_path):
+def get_full_length(frame, folder_path, x_ratio, y_ratio):
 
     gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
     
-    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,9, 2)
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,75, 2)
  
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -132,88 +124,138 @@ def get_full_length(frame,folder_path):
         max_contour = max(contours, key=cv2.contourArea)
         cv2.drawContours(frame,[max_contour],-1, (0,255,0),1)
 
-        cv2.namedWindow('Max Contor',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Max Contor',640,480)
-        cv2.imshow('Max Contor',frame)
-        cv2.waitKey(1000)
-        cv2.destroyAllWindows()
-
         M = cv2.moments(max_contour)
         cx = int(M['m10'] / M['m00'])
         cy = int(M['m01'] / M['m00'])
         
         #x_coords = [point[0][0] for point in max_contour]
-        x_min = tuple(max_contour[max_contour[:,:,0].argmin()][0])#min(x_coords)
-        x_max = tuple(max_contour[max_contour[:,:,0].argmax()][0])#max(x_coords)
+        x_min = tuple(max_contour[max_contour[:,:,0].argmin()][0])
+        x_max = tuple(max_contour[max_contour[:,:,0].argmax()][0])
 
-        dist = x_max[0] - x_min[0]
+        dist = x_ratio * (x_max[0] - x_min[0])
         print(f'distance : {dist} mm')
 
-        cv2.line(frame, (x_min[0],50), (x_max[0],50), (0,0,255), 1)        
-        cv2.putText(frame,"Length: {: .2f} mm".format(dist), (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255),1)
-        cv2.namedWindow('Image with Head and Tail',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Image with Head and Tail',640,480)
-        cv2.imshow('Image with Head and Tail',frame)
-        cv2.waitKey(1000)
-        cv2.destroyAllWindows()
-        
+        cv2.line(frame, (x_min[0],230), (x_max[0],230), (0,0,255), 5)        
+        cv2.putText(frame,"Length: {: .2f} mm".format(dist), (1000,200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
         cv2.imwrite(f'{folder_path}/full_length.png',frame)
 
-        return dist, x_min[0], x_max[0]
+        return dist, x_min[0], x_max[0], frame
     
     else:
         print("No contours found")
-        return None, None
+        return None, None, None
 
-def get_head_and_scales_length(frame,x_head,folder_path):
-    return 0
-        
-def get_fork_length(x_head,x_tail,frame,folder_path):
-    
-    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
-    blurred = cv2.GaussianBlur(gray, (5,5),0)
-    edges = cv2.Canny(blurred, 50, 150)
+def get_head_and_scales_length(x_head,x_tail,frame,folder_path,x_ratio,y_ratio):
 
-    contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    try:
+        hsv_img = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_img,np.array([0,0,0]),np.array([180,255,35]))
 
-    if contours:
+        result = cv2.bitwise_and(frame,frame,mask=mask)
+
+        gray_fins = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+
+        _, thresh = cv2.threshold(gray_fins, 1, 255, cv2.THRESH_BINARY)
+
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         external_contours = []
+
+        for contour in contours:
+            x,y,w,h = cv2.boundingRect(contour)
+    
+            if x > x_tail*0.85 and x < x_tail:
+                external_contours.append(contour)
+
+        sorted_external_contours = sorted(external_contours, key=calculate_change_rates,reverse=True)
+        significant_points = find_significant_points([sorted_external_contours[0]])
+
         x_min = None
 
-        for i, contour in enumerate(contours):
-            x, y, w, h = cv2.boundingRect(contour)
+        for point in significant_points:
+    
+            color = hsv_img[point[1],point[0]-1]
+            color2 = hsv_img[point[1],point[0]+1]
+            if np.all(np.array([0,0,30]) < color) and  np.all(color < np.array([180,150,255])) and np.all(np.array([0,0,0]) < color2) and np.all(color2 < np.array([180,255,35])) :
+                cv2.circle(frame,point,1,(0,255,0),-1)
 
-            if x > x_tail*0.8 and x < x_tail and max(calculate_change_rates(contour)) > 1.5:
-                h = hierarchy[0][i]
-                
-                if h[3] == -1 and get_angle_count(contour) > 3:
-                    external_contours.append(contour)
-
-                    for point in contour:
-                        if not x_min or point[0][0] < x_min:
-                            x_min = point[0][0]
+                if not x_min or x_min > point[0]:
+                    x_min = point[0]
 
         if not x_min:
-            print('get_fork_length error: x_min is None')
-            return 0
+            print('get_head_and_scales_length error: x_min is None')
+            return None, None
         
-        dist = x_min - x_head
-        print(f'distance : {dist} mm')
-
+        dist = x_ratio * (x_min - x_head)
+        
         cv2.drawContours(frame,external_contours, -1, (0,255,0),1)
         cv2.line(frame, (x_head,50), (x_min,50), (0,0,255), 1)        
-        cv2.putText(frame,"Length: {: .2f} mm".format(dist), (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255),1)
-        cv2.namedWindow('Image with Head and Tail',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Image with Head and Tail',800,600)
-        cv2.imshow('Image with Head and Tail',frame)
-        cv2.waitKey(1000)
-        cv2.destroyAllWindows()
+        cv2.putText(frame,"Length: {: .2f} mm".format(dist), (1000,200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
         
-        cv2.imwrite(f'{folder_path}/head_and_fork.length.png',frame)
+        cv2.imwrite(f'{folder_path}/head_and_scales.length.png',frame)
     
-    else:
-        print("No contours found")
+        return dist, frame
+
+    except Exception as e:
+        print(f'get_head_and_scales_length error: {e}')
+        return None, None
+        
+def get_head_and_fork_length(x_head,x_tail,frame,folder_path,x_ratio,y_ratio):
+
+    try:
+    
+        gray = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+        blurred = cv2.GaussianBlur(gray, (5,5),0)
+        edges = cv2.Canny(blurred, 50, 150)
+
+        contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+
+            external_contours = []
+           
+            for i, contour in enumerate(contours):
+                x, y, w, h = cv2.boundingRect(contour)
+
+                #if x > x_tail*0.8 and x < x_tail and max(calculate_change_rates(contour)) > 1.5:
+                if x > x_tail*0.9 and x < x_tail:
+                    h = hierarchy[0][i]
+                
+                    if h[3] == -1 and get_angle_count(contour) > 1:
+                        external_contours.append(contour)
+
+                        #for point in contour:
+                        #    if not x_min or point[0][0] < x_min:
+                        #        x_min = point[0][0]
+
+            sorted_external_contours = sorted(external_contours, key=calculate_change_rates,reverse=True)
+
+            x_min = None
+            for point in sorted_external_contours[0]:
+                if not x_min or point[0][0] < x_min:
+                    x_min = point[0][0]
+
+            if not x_min:
+                print('get_head_and_fork_length error: x_min is None')
+                return None, None
+        
+            dist = x_ratio * (x_min - x_head)
+            print(f'head and fork distance : {dist} mm')
+
+            cv2.drawContours(frame,external_contours, -1, (0,255,0),1)
+            cv2.line(frame, (x_head,50), (x_min,50), (0,0,255), 1)        
+            cv2.putText(frame,"Length: {: .2f} mm".format(dist), (1000,200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
+            
+            cv2.imwrite(f'{folder_path}/head_and_fork.length.png',frame)
+
+            return dist, frame
+    
+        else:
+            print("No contours found")
+            return None, None
+    except Exception as e:
+        print(f'get_head_and_fork_length error: {e}')
+        return None, None
 
 def calculate_max_distance_from_point(point,contour):
     max_distance = 0
@@ -251,29 +293,46 @@ def get_angle_count(contour):
     
     count = 0
     for i in range(len(approx)):
-        prev_point = approx[i-1][0]
-        curr_point = approx[i][0]
-        next_point = approx[(i+1) % len(approx)][0]
+        try:
+            prev_point = approx[i-1][0]
+            curr_point = approx[i][0]
+            next_point = approx[(i+1) % len(approx)][0]
         
-        vec1 = np.array(curr_point) - np.array(prev_point)
-        vec2 = np.array(next_point) - np.array(curr_point)
-        
-        dot_product = np.dot(vec1,vec2)
-        magnitude1 = np.linalg.norm(vec1)
-        magnitude2 = np.linalg.norm(vec2)
-        
-        angle = np.arccos(dot_product / (magnitude1*magnitude2))* 180 /np.pi
+            vec1 = np.array(curr_point) - np.array(prev_point)
+            vec2 = np.array(next_point) - np.array(curr_point)
 
-        if angle > 150:
-            count += 1
+            dot_product = np.dot(vec1,vec2)
+            magnitude1 = np.linalg.norm(vec1)
+            magnitude2 = np.linalg.norm(vec2)
+            angle = np.arccos(dot_product / (magnitude1*magnitude2))* 180 /np.pi
 
-        dx1 = curr_point[0] - prev_point[0]
-        dy1 = curr_point[1] - prev_point[1]
-        dx2 = next_point[0] - curr_point[0]
-        dy2 = next_point[1] - curr_point[1]
+            if angle > 150:
+                count += 1
 
+            dx1 = curr_point[0] - prev_point[0]
+            dy1 = curr_point[1] - prev_point[1]
+            dx2 = next_point[0] - curr_point[0]
+            dy2 = next_point[1] - curr_point[1]
+        except:
+            continue
+            
     return count
-        
+
+def find_significant_points(contours):
+    significant_points = []
+
+    for contour in contours:
+        for i in range(len(contour) - 1):
+            x1,y1 = contour[i][0]
+            x2,y2 = contour[i+1][0]
+            dx = abs(x2-x1)
+            dy = abs(y2-y1)
+            print(f'{x1},{y1}. {x2},{y2}')
+            
+            if dx>dy:
+                significant_points.append((x1,y1))
+    return significant_points
+                    
 def trim_ar_region(frame,folder_path):
 
     #img = cv2.imread(image)
@@ -287,8 +346,6 @@ def trim_ar_region(frame,folder_path):
 
     frame_width_markers = cv2.aruco.drawDetectedMarkers(frame.copy(), corners, ids)
 
-    camera.show('Detected ArUco Markers',frame_width_markers)
-    
     m = np.empty((4,2))
 
     corners2 = [np.empty((1,4,2)) for _ in range(4)]
@@ -303,42 +360,41 @@ def trim_ar_region(frame,folder_path):
     m[2] = corners2[2][0][0]
     m[3] = corners2[3][0][1]
 
+    marker_coordinates = np.float32(m)
+
     qr_code_x_min = int((m[1][0]+m[0][0])//2 - 200)
     qr_code_x_max = int((m[1][0]+m[0][0])//2 + 200)
     qr_code_y_min = int(corners2[0][0][1][1] - 200)
     qr_code_y_max = int(corners2[0][0][2][1] + 200)
     
-    qr_code = utils.get_qr_code_data(frame[qr_code_y_min:qr_code_y_max,qr_code_x_min:qr_code_x_max])
-    x_dis = int(qr_code.split(',')[0]) if qr_code else 200  
+    qr_code = utils.get_qr_code_data(frame[qr_code_y_min:qr_code_y_max,qr_code_x_min:qr_code_x_max],folder_path)
+
+    x_dis = int(qr_code.split(',')[0]) if qr_code else 250  
     y_dis = int(qr_code.split(',')[1]) if qr_code else 150
-    size = 1
  
-    width, height = (x_dis*size, y_dis*size)
-    x_ratio = width / x_dis;
-    y_ratio = height / y_dis;
+    #width, height = (x_dis*size, y_dis*size)
     
-    marker_coordinates = np.float32(m)
+    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
+    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
+
+    x_ratio = x_dis / width;
+    y_ratio = y_dis / height;
+    
     true_coordinates = np.float32([[0,0], [width,0], [width,height], [0,height]])
 
-    save_trimmed_image(folder_path,frame,marker_coordinates)
-    
     mat = cv2.getPerspectiveTransform(marker_coordinates, true_coordinates)
 
     frame_trans = cv2.warpPerspective(frame, mat, (width,height))
 
-    cv2.namedWindow('Transform Image',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Transform Image',640,480)
-    cv2.imshow('Transform Image',frame_trans)
-    cv2.waitKey(1000)
-    cv2.destroyAllWindows()
+    cv2.imwrite(f'{folder_path}/trimmed_image.png',frame_trans)
 
-    return frame_trans
+    return frame_trans, x_ratio, y_ratio
 
-def save_trimmed_image(folder_path,frame,marker_coordinates):
-
-    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
-    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
-    
-    mat = cv2.getPerspectiveTransform(marker_coordinates, np.float32([[0,0], [width,0], [width,height], [0,height]]))
-
-    cv2.imwrite(f'{folder_path}/trimmed_image.png',cv2.warpPerspective(frame, mat, (width,height)))
+#def save_trimmed_image(folder_path,frame,marker_coordinates):
+#
+#    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
+#    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
+#    
+#    mat = cv2.getPerspectiveTransform(marker_coordinates, np.float32([[0,0], [width,0], [width,height], [0,height]]))#
+#
+#    cv2.imwrite(f'{folder_path}/trimmed_image.png',cv2.warpPerspective(frame, mat, (width,height)))

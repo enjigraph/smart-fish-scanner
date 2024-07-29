@@ -42,7 +42,7 @@ class DigitalScale:
                         self.data = match.group()
                         self.recent_data.append(float(match.group()))
 
-                        if len(self.recent_data) > 3:
+                        if len(self.recent_data) > 5:
                             self.recent_data.pop(0)
                         
                     else:
@@ -66,10 +66,10 @@ class DigitalScale:
 
     def update_stable_data(self):
 
-        if len(self.recent_data) < 3:
+        if len(self.recent_data) < 5:
             return 0
         
-        if np.std(self.recent_data[-3:]) < 0.1:
+        if np.std(self.recent_data[-5:]) < 0.1:
 
             mean_value = np.mean(self.recent_data)
             

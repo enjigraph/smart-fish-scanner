@@ -15,14 +15,15 @@ def take_images(folder_path):
 
         camera.on()
 
+        cv2.namedWindow('Frame',cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Frame',640,480)
+
         while True:
             ret, frame = camera.get_image()
             
             if not ret:
                 break
 
-            cv2.namedWindow('Frame',cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('Frame',640,480)
             cv2.imshow('Frame', frame)
             key = cv2.waitKey(1)
 
@@ -34,7 +35,7 @@ def take_images(folder_path):
                 break
 
         camera.release()
-        cv2.destroyAllWindows()
+        cv2.destroyWindow('Frame')
 
     except:
         print(f'error: camera is not found')
@@ -93,7 +94,7 @@ def get_parameters(chessboard_size,square_size_mm,file_name,calibration_images_f
     cv_file.write("dist_coeffs",dist_coeffs)
     cv_file.release()
 
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
     return camera_matrix, dist_coeffs
 
@@ -135,25 +136,15 @@ def get_parameters_of_fisheye(chessboard_size,square_size_mm,file_name,calibrati
             
     rms, _, _, _, _ = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1], K, D ,rvecs, tvecs, cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC,(cv2.TERM_CRITERIA_COUNT + cv2.TERM_CRITERIA_EPS, 100, 1e-6))
 
+    print('Used images num :',used_images_num)
     print("RMS:",rms)
     print("K:",K)
     print("D:",D)
     
-    #mean_error = 0
-
-    #for i in range(len(objpoints)):
-    #    imgpoints2, _ = cv2.fisheye.projectPoints(objpoints[i], rvecs[i], tvecs[i], K, D)
-    #    error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
-    #    mean_error += error
-        
-    #print("total error: {}".format(mean_error/len(objpoints)))
-
     cv_file = cv2.FileStorage(file_name, cv2.FILE_STORAGE_WRITE)
     cv_file.write("K", K)
     cv_file.write("D",D)
     cv_file.release()
-
-    cv2.destroyAllWindows()
 
     return K, D
 
@@ -181,13 +172,12 @@ def test(folder_path):
     camera.show('Undistorted Image',undistorted_frame)
     camera.release()
     
-    trimmed_frame = detect_ar_marker(undistorted_frame)
+    trimmed_frame,x_ratio, y_ratio = detect_ar_marker(undistorted_frame)
 
     gray = cv2.cvtColor(trimmed_frame,cv2.COLOR_BGR2GRAY)
     
-    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,11, 2)
-    #edges = cv2.Canny(gray, 50, 150)
- 
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,75, 2)
+  
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if contours:
@@ -195,34 +185,23 @@ def test(folder_path):
         max_contour = max(contours, key=cv2.contourArea)
         cv2.drawContours(trimmed_frame,[max_contour],-1, (0,255,0),1)
 
-        cv2.namedWindow('Max Contor',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Max Contor',640,480)
-        cv2.imshow('Max Contor',trimmed_frame)
-        cv2.waitKey(1000)
-        cv2.destroyAllWindows()
-
         M = cv2.moments(max_contour)
         cx = int(M['m10'] / M['m00'])
         cy = int(M['m01'] / M['m00'])
         
         #x_coords = [point[0][0] for point in max_contour]
-        x_min = tuple(max_contour[max_contour[:,:,0].argmin()][0])#min(x_coords)
-        x_max = tuple(max_contour[max_contour[:,:,0].argmax()][0])#max(x_coords)
+        x_min = tuple(max_contour[max_contour[:,:,0].argmin()][0])
+        x_max = tuple(max_contour[max_contour[:,:,0].argmax()][0])
 
-        dist = x_max[0] - x_min[0]
+        dist = x_ratio*(x_max[0] - x_min[0])
         print(f'distance : {dist} mm')
 
-        cv2.line(trimmed_frame, (x_min[0],50), (x_max[0],50), (0,0,255), 1)        
-        cv2.putText(trimmed_frame,"Length: {: .2f} mm".format(dist), (10,30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,0,255),1)
-        cv2.namedWindow('Image with Head and Tail',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Image with Head and Tail',640,480)
-        cv2.imshow('Image with Head and Tail',trimmed_frame)
-        cv2.waitKey(1000)
-        cv2.destroyAllWindows()
-
+        cv2.line(trimmed_frame, (x_min[0],230), (x_max[0],230), (0,0,255), 5)        
+        cv2.putText(trimmed_frame,"Length: {: .2f} mm".format(dist), (1000,200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
+       
         cv2.imwrite(f'{folder_path}/test_calibration.png',trimmed_frame)
 
-        return dist
+        return dist,trimmed_frame
     
     else:
         print("No contours found")
@@ -257,6 +236,8 @@ def detect_ar_marker(frame):
     m[1] = corners2[1][0][3]
     m[2] = corners2[2][0][0]
     m[3] = corners2[3][0][1]
+    
+    marker_coordinates = np.float32(m)
 
     qr_code_x_min = int((m[1][0]+m[0][0])//2 - 200)
     qr_code_x_max = int((m[1][0]+m[0][0])//2 + 200)
@@ -267,23 +248,17 @@ def detect_ar_marker(frame):
 
     x_dis = int(qr_code.split(',')[0]) if qr_code else 200  
     y_dis = int(qr_code.split(',')[1]) if qr_code else 150
-    size = 1
+
+    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
+    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
+
+    x_ratio = x_dis / width;
+    y_ratio = y_dis / height;
     
-    width, height = (x_dis*size, y_dis*size)
-    x_ratio = width / x_dis;
-    y_ratio = height / y_dis;
-    
-    marker_coordinates = np.float32(m)
     true_coordinates = np.float32([[0,0], [width,0], [width,height], [0,height]])
 
     mat = cv2.getPerspectiveTransform(marker_coordinates, true_coordinates)
     
     frame_trans = cv2.warpPerspective(frame, mat, (width,height))
 
-    cv2.namedWindow('Transform Image',cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Transform Image',640,480)
-    cv2.imshow('Transform Image',frame_trans)
-    cv2.waitKey(1000)
-    cv2.destroyAllWindows()
-
-    return frame_trans
+    return frame_trans, x_ratio, y_ratio

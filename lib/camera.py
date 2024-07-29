@@ -3,6 +3,7 @@ import serial
 import time
 import sys
 import threading
+import random
 import numpy as np
 from lib.sensor import Sensor
 
@@ -33,7 +34,7 @@ class Camera:
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter.fourcc('M','J','P','G'))
             #print(decode_fourcc(self.cap.get(cv2.CAP_PROP_FOURCC)Z)Z)
             print(f'{self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)},{self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)}')
-        
+            
     def release(self):
         if self.cap is not None:
             self.cap.release()
@@ -61,11 +62,11 @@ class Camera:
 
         if float(distance) > 38 and int(steps) < 0:
             print(f'Moved stepper reached to upper limit')
-            return 'reached to limit'
+            return 'UPPER_LIMIT'
 
         if float(distance) < 16 and int(steps) > 0:
             print(f'Moved stepper reached to lower limit')
-            return 'reached to limit'
+            return 'LOWER_LIMIT'
 
         command = f'{steps}\n'
         self.ser.write(command.encode())
@@ -97,6 +98,8 @@ class Camera:
         errorNum = 0
 
         while True:
+            _, current_distance = self.sensor.get_data()
+
             ret, frame = self.get_image()
 
             if not ret:
@@ -108,15 +111,21 @@ class Camera:
                 
                 continue
 
-            #self.show('ArUco Markers',frame)
-
             shift = self.determine_movement(frame)
 
             if shift == "up":
                 print("UP")
+
+                if float(current_distance) > 38:
+                    break
+                
                 self.move_stepper(-6000)
             elif shift == "down":
                 print("DOWN")
+
+                if float(current_distance) < 16:
+                    break
+                
                 self.move_stepper(6000)
             elif shift == "center":
                 print("CENTER")            
@@ -186,8 +195,6 @@ class Camera:
 
             image_width_markers = cv2.aruco.drawDetectedMarkers(image.copy(), corners, ids)
 
-            self.show('Detected ArUco Markers',image_width_markers)
-
             m = np.empty((4,2))
         
             corners2 = [np.empty((1,4,2)) for _ in range(4)]
@@ -216,12 +223,7 @@ class Camera:
             if frame is None:
                 print("frame is None")
                 return 0;
-            
-            cv2.namedWindow(title,cv2.WINDOW_NORMAL)
-            cv2.resizeWindow(title,640,480)
-            cv2.imshow(title,frame)
-            cv2.waitKey(1000)
-            cv2.destroyAllWindows()
+
         except Exception as e:
             print(f'[show][error] {e}')
 

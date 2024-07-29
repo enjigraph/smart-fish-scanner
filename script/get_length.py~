@@ -1,0 +1,68 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+def calculate_max_distance_from_point(point,contour):
+    max_distance = 0
+    farthest_point = point
+    for p in contour:
+        distance =np.linalg.norm(np.array(point) - np.array(p[0]))
+        if distance > max_distance:
+            max_distance = distance
+            farthest_point = p[0]
+    return farthest_point, max_distance
+
+def calculate_change_rates(contour):
+    change_rates = []
+    num_points = len(contour)
+    for i in range(num_points):
+        curr_point = contour[i][0]
+
+        farthest_point, max_distance = calculate_max_distance_from_point(curr_point,contour)
+        
+        dx = abs(curr_point[0] - farthest_point[0])
+        dy = abs(curr_point[1] - farthest_point[1])
+
+        if dx != 0:
+            change_rate = dy / dx
+        else:
+            change_rate = 0
+            
+        change_rates.append(change_rate)
+
+    return change_rates
+
+
+frame = cv2.imread('./trimmed_image.png')
+hsv_img = cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+mask = cv2.inRange(hsv_img,np.array([0,0,0]),np.array([180,255,45]))
+
+result = cv2.bitwise_and(frame,frame,mask=mask)
+    
+cv2.namedWindow('Max Contor',cv2.WINDOW_NORMAL)
+cv2.resizeWindow('Max Contor',640,480)
+cv2.imshow('Max Contor',result)
+cv2.waitKey(0)
+cv2.destroyWindow('Max Contor')
+    
+gray_fins = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+
+_, thresh = cv2.threshold(gray_fins, 1, 255, cv2.THRESH_BINARY)
+
+contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+external_contours = []
+
+for contour in contours:
+    x,y,w,h = cv2.boundingRect(contour)
+    
+    if x > 1900 and x < 2112 and max(calculate_change_rates(contour)) > 1.0:
+        external_contours.append(contour)
+
+cv2.drawContours(frame,external_contours, -1, (0,255,0),1)
+ 
+cv2.namedWindow('result',cv2.WINDOW_NORMAL)
+cv2.resizeWindow('result',640,480)
+cv2.imshow('result',frame)
+cv2.waitKey(0)
+cv2.destroyWindow('result')    

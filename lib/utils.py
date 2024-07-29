@@ -18,18 +18,17 @@ def count_column_elements(file_path,column_name):
     except:
         return 0
 
-def get_qr_code_data(frame):
+def get_qr_code_data(frame,folder_path=None):
     detector = cv2.QRCodeDetectorAruco()
 
     height, width = frame.shape[:2]
     
     data, _, _ = detector.detectAndDecode(frame)
     print(f'qr code data: {data}')
-
-    cv2.imshow('qr_code',frame)
-    cv2.waitKey(1000)
-    cv2.destroyAllWindows()
     
+    if folder_path:
+        cv2.imwrite(f'{folder_path}/qr_code_{data}.png',frame)
+
     if data:
         return data
             
