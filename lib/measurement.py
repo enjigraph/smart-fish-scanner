@@ -304,7 +304,11 @@ def get_angle_count(contour):
             dot_product = np.dot(vec1,vec2)
             magnitude1 = np.linalg.norm(vec1)
             magnitude2 = np.linalg.norm(vec2)
-            angle = np.arccos(dot_product / (magnitude1*magnitude2))* 180 /np.pi
+            
+            if not np.isfinite(magnitude1) or not np.isfinite(magnitude2) or magnitude1 == 0 or magnitude2 == 0:
+                continue
+            
+            angle = np.arccos(dot_product / (magnitude1*magnitude2))* 180 / np.pi
 
             if angle > 150:
                 count += 1
@@ -327,7 +331,7 @@ def find_significant_points(contours):
             x2,y2 = contour[i+1][0]
             dx = abs(x2-x1)
             dy = abs(y2-y1)
-            print(f'{x1},{y1}. {x2},{y2}')
+            #print(f'{x1},{y1}. {x2},{y2}')
             
             if dx>dy:
                 significant_points.append((x1,y1))

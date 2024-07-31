@@ -97,6 +97,10 @@ class GenitalMeasurement(tk.Frame):
                 time.sleep(1)
 
                 last_weight = digital_scale.get_data()
+                
+                if not last_weight:
+                    last_weight = weight
+
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
 

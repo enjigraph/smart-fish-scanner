@@ -107,14 +107,7 @@ class Measuring(tk.Frame):
                 print(f'head_and_scales_length: {head_and_scales_length}mm')
                 print(f'head_and_fork_length: {head_and_fork_length}mm')
 
-                self.show_popup('全長',f'length: {full_length}mm',full_length_frame)
-                if head_and_scales_length:
-                    time.sleep(2)
-                    self.show_popup('被鱗体長',f'length: {head_and_scales_length_frame}mm',head_and_scales_length_frame)
-
-                if head_and_fork_length:
-                    time.sleep(2)
-                    self.show_popup('尾又長',f'length: {head_and_fork_length_frame}mm',head_and_fork_length_frame)
+                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,f'被鱗体長: {head_and_scales_length_frame}mm' if head_and_scales_length else None,head_and_scales_length_frame,f'尾又長: {head_and_fork_length_frame}mm' if head_and_fork_length else None,head_and_fork_length_frame)
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
 
@@ -123,12 +116,16 @@ class Measuring(tk.Frame):
 
                 if abs(check_full_length - full_length) < 2 and abs(check_weight - weight) < 2:
                     voice.data_alert()
-                    messagebox.showinfo("計測データに関するアラート","全長と重さが非常に近いデータが保存されました。")
+                    print("全長と重さが非常に近いデータが保存されました。")
+                    time.sleep(5)
+                    #messagebox.showinfo("計測データに関するアラート","全長と重さが非常に近いデータが保存されました。")
                     
                 #camera.move_to_distance(20)
                 count += 1
 
                 last_weight = digital_scale.get_data()
+                if not last_weight:
+                    last_weight = weight
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
 
@@ -164,11 +161,11 @@ class Measuring(tk.Frame):
         
         self.controller.show_home()
 
-    def show_popup(self,title,text,frame):
+    def show_popup(self,title,text,frame,text2,frame2,text3,frame3):
         
         popup = tk.Toplevel(self)
         popup.title(title)
-        popup.geometry("800x480")
+        popup.geometry("800x880")
 
         tk.Label(popup, text=text).pack(pady=20)
 
@@ -176,11 +173,37 @@ class Measuring(tk.Frame):
         canvas.pack(pady=20)
 
         frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-        frame = self.resize_image(frame,480,240)
+        frame = self.resize_image(frame,480,200)
         image = Image.fromarray(frame)
         
         self.popup_imageTk = ImageTk.PhotoImage(image=image)        
         canvas.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk)
+
+        if text2:
+            tk.Label(popup, text=text2).pack(pady=20)
+            
+            canvas2 = tk.Canvas(popup,bg="lightgray",width=480,height=280)
+            canvas2.pack(pady=20)
+
+            #frame2 = cv2.cvtColor(frame2,cv2.COLOR_BGR2RGB)
+            frame2 = self.resize_image(frame2,480,200)
+            image2 = Image.fromarray(frame2)
+        
+            self.popup_imageTk2 = ImageTk.PhotoImage(image=image2)        
+            canvas2.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk2)
+
+        if text3:
+            tk.Label(popup, text=text3).pack(pady=20)
+                
+            canvas3 = tk.Canvas(popup,bg="lightgray",width=480,height=280)
+            canvas3.pack(pady=20)
+
+            #frame3 = cv2.cvtColor(frame3,cv2.COLOR_BGR2RGB)
+            frame3 = self.resize_image(frame3,480,200)
+            image3 = Image.fromarray(frame3)
+        
+            self.popup_imageTk3 = ImageTk.PhotoImage(image=image3)        
+            canvas3.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk3)
 
         self.after(1000, lambda: popup.destroy())
 

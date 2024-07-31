@@ -72,8 +72,11 @@ class DigitalScale:
         if np.std(self.recent_data[-5:]) < 0.1:
 
             mean_value = np.mean(self.recent_data)
-            
-            if not self.stable_data or abs(mean_value - self.stable_data[-1]) >= 5:
+
+            #if len(self.stable_data) > 0:
+            #    print(f'mean_value: {mean_value}, self.stable_data[-1]: {self.stable_data[-1]}')
+
+            if len(self.stable_data) == 0 or abs(mean_value - self.stable_data[-1]) >= 5:
                 self.stable_data.append(np.mean(self.recent_data))
                 
             self.recent_data.clear()
@@ -91,12 +94,27 @@ class DigitalScale:
         return len(self.stable_data)
 
     def get_weight(self):
-        print(self.stable_data)
-        max_stable_data = max(self.stable_data)
-        self.stable_data.remove(max_stable_data)
-        second_max_stable_data = max(self.stable_data)
+        recent_data = self.recent_data[-1]
+        stable_data = self.remove_close_weight([x for x in self.stable_data if x <= recent_data+2])
+
+        #print(f'recent_data: {recent_data}, self.stable_data: {self.stable_data}, stable_data: {stable_data}')
+                
+        max_stable_data = max(stable_data)
+        stable_data.remove(max_stable_data)
+        second_max_stable_data = max(stable_data)
 
         return max_stable_data - second_max_stable_data
-    
+
+    def remove_close_weight(self,x):
+
+        result = []
+
+        for i in range(len(x)):
+            if i==0:
+                result.append(x[i])
+            elif abs(x[i] - result[-1]) > 5:
+                result.append(x[i])
+        return result
+        
     def stop(self):
         self.running = False

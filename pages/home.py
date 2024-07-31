@@ -1,12 +1,14 @@
 import cv2
 import time
 import tkinter as tk
-import lib.calibration as calibration
+import os
+import shutil
 from tkinter import messagebox
 from datetime import datetime
 from PIL import Image,ImageTk
 
 from lib.camera import Camera
+import lib.calibration as calibration
 import lib.utils as utils
 
 camera = Camera()
@@ -26,6 +28,7 @@ class Home(tk.Frame):
 
         tk.Button(self,text="カメラを上下動させる",command=self.controller.show_move_camera).pack(pady=(5,20))
         tk.Button(self,text="自動キャリブレーションを開始する",command=self.auto_calibration).pack(pady=5)
+        tk.Button(self,text="過去のキャリブレーションファイルをコピーする",command=self.copy_calibration).pack(pady=5)
         tk.Button(self,text="キャリブレーションの精度を確認する",command=self.test_calibration).pack(pady=(5,20))
         tk.Button(self,text="測定を開始する",command=self.controller.show_measurement).pack(pady=5)
         tk.Button(self,text="胃の測定を開始する",command=self.controller.show_stomach_measurement).pack(pady=5)
@@ -66,7 +69,19 @@ class Home(tk.Frame):
 
             return resize_image
         return image
-    
+
+    def copy_calibration(self):
+        folders = [f for f in os.listdir('./data') if os.path.isdir(os.path.join('./data',f))]
+
+        sorted_folders = sorted(folders, key=lambda x: datetime.strptime(x, '%Y-%m-%d'),reverse=True)
+
+        utils.make_folder(f'./data/{self.today}/calibration/')
+
+        for folder in sorted_folders:
+            if os.path.isfile(f'./data/{folder}/calibration/calibration.yaml'):
+                shutil.copy(f'./data/{folder}/calibration/calibration.yaml',f'./data/{self.today}/calibration/')
+                messagebox.showinfo("キャリブレーションファイルのコピー",f'{folder}のキャリブレーションファイルをコピーしました。')
+                break
         
     def auto_calibration(self):
         
