@@ -39,6 +39,10 @@ class Camera:
         if self.cap is not None:
             self.cap.release()
             self.cap = None
+
+    def grab(self):
+        print('camera is grab')
+        self.cap.grab()
         
     def get_image(self):
         try:
@@ -70,7 +74,7 @@ class Camera:
 
         command = f'{steps}\n'
         self.ser.write(command.encode())
-        print(f'Moved stepper motor {steps} steps')
+        print(f'Moved stepper motor {steps} steps. distance: {distance}')
 
         start_time = time.time()
         
@@ -212,7 +216,10 @@ class Camera:
 
             if m[0][0] > width*0.15 and m[0][1] > height*0.15 and m[1][0] < width*0.85 and m[1][1] > height*0.15 and m[2][0] < width*0.85 and m[2][1] < height*0.85 and m[3][0] > width*0.15 and m[3][1] < height*0.85:
                 return "down"
-
+            
+            if m[0][0] < width*0.05 or m[0][1] < height*0.05 or m[1][0] > width*0.95 or m[1][1] < height*0.05 or m[2][0] > width*0.95 or m[2][1] > height*0.95 or m[3][0] < width*0.05 or m[3][1] > height*0.95:
+                return "up"
+            
             return "not_moving"
 
         except:

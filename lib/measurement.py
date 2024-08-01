@@ -393,12 +393,3 @@ def trim_ar_region(frame,folder_path):
     cv2.imwrite(f'{folder_path}/trimmed_image.png',frame_trans)
 
     return frame_trans, x_ratio, y_ratio
-
-#def save_trimmed_image(folder_path,frame,marker_coordinates):
-#
-#    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
-#    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
-#    
-#    mat = cv2.getPerspectiveTransform(marker_coordinates, np.float32([[0,0], [width,0], [width,height], [0,height]]))#
-#
-#    cv2.imwrite(f'{folder_path}/trimmed_image.png',cv2.warpPerspective(frame, mat, (width,height)))

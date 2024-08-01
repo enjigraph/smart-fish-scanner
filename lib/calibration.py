@@ -1,46 +1,149 @@
 import cv2
-import numpy as np
+import os
+import serial
+import time
 import glob
+import itertools
+import numpy as np
 import lib.utils as utils
 from lib.camera import Camera
 
 camera = Camera()
 
-def take_images(folder_path):
-    
+def take_images(folder_path,direction,adjustment):
+        
+    ser = serial.Serial('/dev/ttyACM2',9600)
+    time.sleep(2)
+
     try:
+
         print(f'start to take a image camera')
 
         count = 0
 
         camera.on()
 
-        cv2.namedWindow('Frame',cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Frame',640,480)
+        angle = ['90,90','105,90','75,90','90,75','90,105','100,100','80,80']
+        patterns = list(itertools.product(angle,direction))
+        
+        for pattern in patterns:
 
-        while True:
+            if count % 5 == 0:
+                camera.grab()
+
+            instruction = ','.join(map(str,pattern))
+            print(f'{count}: {instruction}')
+            ser.write(instruction.encode())
+            time.sleep(4)
+
+            if not adjustment:
+                ret, frame = camera.get_image()
+                
+                if not ret:
+                    continue
+
+                cv2.imwrite(f'{folder_path}/{count}.png',frame)
+                count += 1
+
+            else:
+                for i in range(5):
+
+                    ret, frame = camera.get_image()
+                                    
+                    if not ret:
+                        continue
+                    
+                    adjustment_directions = get_missing_ar_marker_ids(frame)
+
+                    if len(adjustment_directions) > 0:
+                        for adjustment_direction in adjustment_directions:
+                            print(f'ar is missing. adjustment_direction: {adjustment_direction}.')
+                            parts = instruction.split(',')
+                            parts[2]= adjustment_direction
+                            new_instruction = ','.join(parts)
+                            ser.write(new_instruction.encode())
+                            time.sleep(2)
+                    else:
+                        cv2.imwrite(f'{folder_path}/{count}.png',frame)
+                        count += 1
+                        break
+            
+        camera.release()
+       
+    except Exception as e: 
+        print(f'take image error: {e}')
+
+    ser.close()
+
+def take_images_by_manual(folder_path):
+    
+    ser = serial.Serial('/dev/ttyACM2',9600)
+    time.sleep(2)
+
+    try:
+        print(f'start to take a image camera')
+        camera.on()
+
+        count = sum(len(files) for _ , _, files in os.walk(folder_path))
+        patterns = ['90,90,stop','105,90,stop','75,90,stop','90,75,stop','90,105,stop','100,100,stop','80,80,stop']
+
+        for pattern in patterns:
+
+            print(f'{count}: {pattern}')
+            ser.write(pattern.encode())
+            time.sleep(2)
+
             ret, frame = camera.get_image()
             
             if not ret:
-                break
-
-            cv2.imshow('Frame', frame)
-            key = cv2.waitKey(1)
-
-            if key == ord('s'):
-                cv2.imwrite(f'{folder_path}/{count}.png',frame)
-                print(f'{folder_path}/{count}.png save')
-                count += 1
-            elif key == ord('q'):
-                break
+                continue
+                
+            cv2.imwrite(f'{folder_path}/{count}.png',frame)
+            count += 1
 
         camera.release()
-        cv2.destroyWindow('Frame')
+    except Exception as e:
+        print(f'take_images_by_manual error: {e}')
+       
+def get_missing_ar_marker_ids(frame):
 
-    except:
-        print(f'error: camera is not found')
-        
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    parameters = cv2.aruco.DetectorParameters()
 
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+
+    corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(gray, dictionary,parameters=parameters)
+
+    frame_with_markers = cv2.aruco.drawDetectedMarkers(frame.copy(),corners,ids)
+
+    print(ids)
+    target_ids = {0, 1, 2, 3}
+
+    detected_ids = set(ids.flatten())
+
+    missing_ids = target_ids - detected_ids
+
+    if 0 in missing_ids and 1 in missing_ids:
+        return ['left']
+
+    if 2 in missing_ids and 3 in missing_ids:
+        return ['right']
+
+    if 0 in missing_ids:
+        return ['left','leftRotation']
+
+    if 1 in missing_ids:
+        return ['left','rightRotation']
+
+    if 2 in missing_ids:
+        return ['right','leftRotation']
+
+    if 3 in missing_ids:
+        return ['right','rightRotation']
+
+    return []
+    
+    
 def get_parameters(chessboard_size,square_size_mm,file_name,calibration_images_folder_path):
 
     objp = np.zeros(( chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )

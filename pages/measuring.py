@@ -2,6 +2,7 @@ import threading
 import time
 import os
 import cv2
+import numpy as np
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox
@@ -80,16 +81,19 @@ class Measuring(tk.Frame):
             #print(f'IR Value: {ir_value}, Distance: {distance}, lock:{self.lock}')
 
             if ir_value == "0" and not self.lock:
+                self.lock = True
                 voice.start()
 
                 if digital_scale.get_stable_data_length() < 2:
                     voice.retry()
                     self.lock = False
                     continue
+
+                if count % 5 == 0:
+                    camera.grab()
                 
                 self.status_label.config(text=f'{count+1}つ目のデータを測定中')
                 print(f'start to get data :{count}')
-                self.lock = True
 
                 folder_path = f'./data/{self.today}/images/{count}/full_body'
                 utils.make_folder(folder_path)
@@ -107,7 +111,7 @@ class Measuring(tk.Frame):
                 print(f'head_and_scales_length: {head_and_scales_length}mm')
                 print(f'head_and_fork_length: {head_and_fork_length}mm')
 
-                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,f'被鱗体長: {head_and_scales_length_frame}mm' if head_and_scales_length else None,head_and_scales_length_frame,f'尾又長: {head_and_fork_length_frame}mm' if head_and_fork_length else None,head_and_fork_length_frame)
+                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,f'被鱗体長: {head_and_scales_length}mm' if head_and_scales_length else None,head_and_scales_length_frame,f'尾又長: {head_and_fork_length}mm' if head_and_fork_length else None,head_and_fork_length_frame)
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
 
@@ -167,45 +171,46 @@ class Measuring(tk.Frame):
         popup.title(title)
         popup.geometry("800x880")
 
-        tk.Label(popup, text=text).pack(pady=20)
+        #tk.Label(popup, text=text).pack(pady=20)
 
         canvas = tk.Canvas(popup,bg="lightgray",width=480,height=280)
-        canvas.pack(pady=20)
+        canvas.pack(pady=5)
 
         frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-        frame = self.resize_image(frame,480,200)
+        frame = self.resize_image(frame,480,180)
         image = Image.fromarray(frame)
         
         self.popup_imageTk = ImageTk.PhotoImage(image=image)        
         canvas.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk)
 
         if text2:
-            tk.Label(popup, text=text2).pack(pady=20)
+            #tk.Label(popup, text=text2).pack(pady=20)
             
             canvas2 = tk.Canvas(popup,bg="lightgray",width=480,height=280)
-            canvas2.pack(pady=20)
+            canvas2.pack(pady=5)
 
-            #frame2 = cv2.cvtColor(frame2,cv2.COLOR_BGR2RGB)
-            frame2 = self.resize_image(frame2,480,200)
+            print(f'type: {frame2.dtype}')
+            frame2 = cv2.cvtColor(frame2,cv2.COLOR_BGR2RGB)
+            frame2 = self.resize_image(frame2,480,180)
             image2 = Image.fromarray(frame2)
         
             self.popup_imageTk2 = ImageTk.PhotoImage(image=image2)        
             canvas2.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk2)
 
         if text3:
-            tk.Label(popup, text=text3).pack(pady=20)
+            #tk.Label(popup, text=text3).pack(pady=20)
                 
             canvas3 = tk.Canvas(popup,bg="lightgray",width=480,height=280)
-            canvas3.pack(pady=20)
+            canvas3.pack(pady=5)
 
-            #frame3 = cv2.cvtColor(frame3,cv2.COLOR_BGR2RGB)
-            frame3 = self.resize_image(frame3,480,200)
+            frame3 = cv2.cvtColor(frame3,cv2.COLOR_BGR2RGB)
+            frame3 = self.resize_image(frame3,480,180)
             image3 = Image.fromarray(frame3)
         
             self.popup_imageTk3 = ImageTk.PhotoImage(image=image3)        
             canvas3.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk3)
 
-        self.after(1000, lambda: popup.destroy())
+        self.after(2000, lambda: popup.destroy())
 
     def resize_image(self,image,max_width,max_height):
         height, width, _ = image.shape

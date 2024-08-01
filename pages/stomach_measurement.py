@@ -68,6 +68,9 @@ class StomachMeasurement(tk.Frame):
                     self.lock = False
                     continue
 
+                if count % 5 == 0:
+                    camera.grab()
+
                 self.status_label.config(text=f'{count+1}つ目のデータを測定中')
                 print(f'start to get data: {count}')
                 self.lock = True

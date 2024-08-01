@@ -20,13 +20,14 @@ class Home(tk.Frame):
         self.controller = controller
 
         self.today = datetime.now().strftime('%Y-%m-%d')
-
+        self.running = True
         tk.Label(self, text="ホーム").pack(pady=20)
 
         self.canvas = tk.Canvas(self,bg="lightgray",width=480,height=280)
         self.canvas.pack(pady=20)
 
-        tk.Button(self,text="カメラを上下動させる",command=self.controller.show_move_camera).pack(pady=(5,20))
+        tk.Button(self,text="カメラを上下動させる",command=self.controller.show_move_camera).pack(pady=(5,20)) 
+        tk.Button(self,text="手動キャリブレーションを開始する",command=self.manual_calibration).pack(pady=5)
         tk.Button(self,text="自動キャリブレーションを開始する",command=self.auto_calibration).pack(pady=5)
         tk.Button(self,text="過去のキャリブレーションファイルをコピーする",command=self.copy_calibration).pack(pady=5)
         tk.Button(self,text="キャリブレーションの精度を確認する",command=self.test_calibration).pack(pady=(5,20))
@@ -39,19 +40,21 @@ class Home(tk.Frame):
         
     def show_camera(self):
 
-        camera.on()
+        if self.running:
 
-        ret, frame = camera.get_image()
+            camera.on()
+
+            ret, frame = camera.get_image()
             
-        if not ret:
-            messagebox.showinfo("カメラエラー",'エラーが発生しました。')
+            if not ret:
+                messagebox.showinfo("カメラエラー",'エラーが発生しました。')
 
-        frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-        frame =self.resize_image(frame,self.canvas.winfo_width(),self.canvas.winfo_height())
-        image = Image.fromarray(frame)
+            frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+            frame =self.resize_image(frame,self.canvas.winfo_width(),self.canvas.winfo_height())
+            image = Image.fromarray(frame)
         
-        self.imageTk = ImageTk.PhotoImage(image=image)        
-        self.canvas.create_image(0,0,anchor=tk.NW, image=self.imageTk)
+            self.imageTk = ImageTk.PhotoImage(image=image)        
+            self.canvas.create_image(0,0,anchor=tk.NW, image=self.imageTk)
             
         self.after(500,self.show_camera)
 
@@ -82,30 +85,61 @@ class Home(tk.Frame):
                 shutil.copy(f'./data/{folder}/calibration/calibration.yaml',f'./data/{self.today}/calibration/')
                 messagebox.showinfo("キャリブレーションファイルのコピー",f'{folder}のキャリブレーションファイルをコピーしました。')
                 break
+
+    def manual_calibration(self):
+        self.running = False
         
-    def auto_calibration(self):
-        
-        response = messagebox.askquestion("自動キャリブレーション",'キャリブレーションを開始しますか？')
+        response = messagebox.askquestion("手動キャリブレーション",'キャリブレーションを開始しますか？')
 
         if response == 'yes':
-            
-            camera.move_to_distance(35)
-        
+
             folder_path = f'./data/{self.today}/calibration/images'
             utils.make_folder(folder_path)
 
-            calibration.take_images(folder_path)
+            calibration.take_images_by_manual(folder_path)
             calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
-
-            messagebox.showinfo("自動キャリブレーション",'キャリブレーションが完了しました。')
 
         else:
             pass
         
+        self.running = True
+
+    def auto_calibration(self):
+
+        self.running = False
+        
+        response = messagebox.askquestion("自動キャリブレーション",'キャリブレーションを開始しますか？')
+
+        if response == 'yes':
+
+            start_time = time.time()
+            folder_path = f'./data/{self.today}/calibration/images'
+            utils.make_folder(folder_path)
+
+            camera.move_to_distance(35)
+           
+            calibration.take_images(folder_path,['stop','forward','backward','backward','forward'],False)
+
+            camera.move_stepper(-6000*4)
+            
+            calibration.take_images(folder_path,['stop','forward','right','backward','backward','left','forward'],True)
+            calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+
+            processing_time = time.time() - start_time
+            print(f'processing_time: {processing_time}s')
+            messagebox.showinfo("自動キャリブレーション",'キャリブレーションが完了しました。')
+
+        else:
+            pass
+
+        self.running = True
+
     def test_calibration(self):
         response = messagebox.askquestion("キャリブレーションの精度検証",'精度検証を開始しますか？\n精度検証用シートを忘れずに置いてください。')
 
         if response == 'yes':
+
+            self.running = False
             
             camera.on()
             camera.move_to_distance(20)
@@ -128,6 +162,8 @@ class Home(tk.Frame):
 
         else:
             pass
+
+        self.running = True
         
     def show_popup(self,title,text,frame):
         
