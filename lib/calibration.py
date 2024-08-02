@@ -63,11 +63,14 @@ def take_images(folder_path,direction,adjustment):
                             new_instruction = ','.join(parts)
                             ser.write(new_instruction.encode())
                             time.sleep(2)
+                            camera.grab()
                     else:
                         cv2.imwrite(f'{folder_path}/{count}.png',frame)
                         count += 1
                         break
-            
+
+        ser.write('90,90,stop'.encode())
+        time.sleep(2)
         camera.release()
        
     except Exception as e: 
@@ -91,7 +94,7 @@ def take_images_by_manual(folder_path):
 
             print(f'{count}: {pattern}')
             ser.write(pattern.encode())
-            time.sleep(2)
+            time.sleep(4)
 
             ret, frame = camera.get_image()
             
@@ -101,10 +104,14 @@ def take_images_by_manual(folder_path):
             cv2.imwrite(f'{folder_path}/{count}.png',frame)
             count += 1
 
+        ser.write('90,90,stop'.encode())
+        time.sleep(2)
         camera.release()
     except Exception as e:
         print(f'take_images_by_manual error: {e}')
-       
+
+    ser.close()
+
 def get_missing_ar_marker_ids(frame):
 
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
@@ -216,8 +223,9 @@ def get_parameters_of_fisheye(chessboard_size,square_size_mm,file_name,calibrati
     for image in images:
         img = cv2.imread(image)
         gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        blurred_gray = cv2.GaussianBlur(gray,(5,5),0)
         
-        ret, centers = cv2.findChessboardCorners(gray,chessboard_size,flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
+        ret, centers = cv2.findChessboardCorners(blurred_gray,chessboard_size,flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
         print(f'{image} : {ret}')
         
         if ret:
@@ -258,7 +266,9 @@ def test(folder_path):
     if not ret:
         print("camera error")
         return None
-    
+
+    cv2.imwrite(f'{folder_path}/original_calibration.png',frame)
+
     cv_file = cv2.FileStorage(f'{folder_path}/calibration.yaml', cv2.FILE_STORAGE_READ)
     
     K = cv_file.getNode('K').mat()
@@ -272,7 +282,8 @@ def test(folder_path):
        
     #x,y,w,h = roi
     #undistorted_frame = undistorted_frame[y:y+h, x:x+w]
-    camera.show('Undistorted Image',undistorted_frame)
+    cv2.imwrite(f'{folder_path}/undistorted_calibration.png',undistorted_frame)
+
     camera.release()
     
     trimmed_frame,x_ratio, y_ratio = detect_ar_marker(undistorted_frame)
