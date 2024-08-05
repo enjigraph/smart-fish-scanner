@@ -1,9 +1,10 @@
 #include <Servo.h>
 
-#define BLIN1 0
-#define BLIN2 1
-#define FLIN1 2
-#define FLIN2 3
+
+#define BLIN1 2
+#define BLIN2 3
+#define FLIN1 4
+#define FLIN2 5
 #define FRIN1 8
 #define FRIN2 9
 #define BRIN1 10
@@ -15,6 +16,11 @@ Servo servo2;
 
 
 void setup() {
+
+
+  Serial.begin(9600);
+
+
   pinMode(BLIN1,OUTPUT);
   pinMode(BLIN2,OUTPUT);
   pinMode(FLIN1,OUTPUT);
@@ -29,7 +35,6 @@ void setup() {
   servo2.attach(6);
 
 
-  Serial.begin(9600);
 }
 
 
@@ -58,6 +63,9 @@ void loop() {
 
 
   }
+
+
+  delay(1000);
 }
 
 
@@ -84,7 +92,7 @@ void controlMotors(String direction) {
     digitalWrite(FRIN2,HIGH);
     digitalWrite(BRIN1,LOW);
     digitalWrite(BRIN2,HIGH);
-    delay(1000);
+    delay(500);
 
 
   } else if (direction == "backward") {
@@ -98,7 +106,7 @@ void controlMotors(String direction) {
     digitalWrite(FRIN2,LOW);
     digitalWrite(BRIN1,HIGH);
     digitalWrite(BRIN2,LOW);
-    delay(1000);
+    delay(500);
 
 
   } else if (direction == "left") {
@@ -112,7 +120,7 @@ void controlMotors(String direction) {
     digitalWrite(FRIN2,HIGH);
     digitalWrite(BRIN1,HIGH);
     digitalWrite(BRIN2,LOW);
-    delay(1000);
+    delay(500);
 
 
   } else if (direction == "right") {
@@ -126,9 +134,35 @@ void controlMotors(String direction) {
     digitalWrite(FRIN2,LOW);
     digitalWrite(BRIN1,LOW);
     digitalWrite(BRIN2,HIGH);
-    delay(1000);
+    delay(500);
 
 
+  } else if(direction == "leftRotation"){
+
+
+    digitalWrite(FLIN1,HIGH);
+    digitalWrite(FLIN2,LOW);
+    digitalWrite(BLIN1,HIGH);
+    digitalWrite(BLIN2,LOW);
+    digitalWrite(FRIN1,LOW);
+    digitalWrite(FRIN2,HIGH);
+    digitalWrite(BRIN1,LOW);
+    digitalWrite(BRIN2,HIGH);
+    delay(250);
+ 
+  } else if(direction == "rightRotation"){
+
+
+    digitalWrite(FLIN1,LOW);
+    digitalWrite(FLIN2,HIGH);
+    digitalWrite(BLIN1,LOW);
+    digitalWrite(BLIN2,HIGH);
+    digitalWrite(FRIN1,HIGH);
+    digitalWrite(FRIN2,LOW);
+    digitalWrite(BRIN1,HIGH);
+    digitalWrite(BRIN2,LOW);
+    delay(250);
+ 
   }
 
 
@@ -143,3 +177,5 @@ void controlMotors(String direction) {
 
 
 }
+
+
