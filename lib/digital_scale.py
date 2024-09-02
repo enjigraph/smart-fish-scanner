@@ -76,7 +76,8 @@ class DigitalScale:
             #if len(self.stable_data) > 0:
             #    print(f'mean_value: {mean_value}, self.stable_data[-1]: {self.stable_data[-1]}')
 
-            if len(self.stable_data) == 0 or abs(mean_value - self.stable_data[-1]) >= 5:
+            if len(self.stable_data) == 0 or abs(mean_value - self.stable_data[-1]) >= 0.3: #when length thread is 5
+                print(self.recent_data)
                 self.stable_data.append(np.mean(self.recent_data))
                 
             self.recent_data.clear()
@@ -94,17 +95,21 @@ class DigitalScale:
         return len(self.stable_data)
 
     def get_weight(self):
-        recent_data = self.recent_data[-1]
+
+        while True:
+            if self.data:
+                return self.data
+        #recent_data = self.recent_data[-1]
         stable_data = self.remove_close_weight([x for x in self.stable_data if x <= recent_data+2])
 
         #print(f'recent_data: {recent_data}, self.stable_data: {self.stable_data}, stable_data: {stable_data}')
                 
-        max_stable_data = max(stable_data)
-        stable_data.remove(max_stable_data)
-        second_max_stable_data = max(stable_data)
+        #max_stable_data = max(stable_data)
+        #stable_data.remove(max_stable_data)
+        #second_max_stable_data = max(stable_data)
 
-        return max_stable_data - second_max_stable_data
-
+        #return max_stable_data - second_max_stable_data
+        
     def remove_close_weight(self,x):
 
         result = []

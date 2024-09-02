@@ -68,7 +68,7 @@ class Camera:
             print(f'Moved stepper reached to upper limit')
             return 'UPPER_LIMIT'
 
-        if float(distance) < 16 and int(steps) > 0:
+        if float(distance) < 13 and int(steps) > 0:
             print(f'Moved stepper reached to lower limit')
             return 'LOWER_LIMIT'
 
@@ -171,7 +171,28 @@ class Camera:
                 print(str(distance))
 
         return 0
+
+    def check_ar_marker(self):
+        errorNum = 0
+        while True:
+            ret, frame = self.get_image()
+
+            if not ret:
+                print(f'camera error: {errorNum}')
+                errorNum += 1
+
+                if errorNum > 3:
+                    return "camera error"
+
+                continue
         
+            shift = self.determine_movement(frame)
+
+            if shift == "center":
+                return 'ar marker error'
+
+            return 'success'
+            
     def determine_movement(self,image):
 
         try:

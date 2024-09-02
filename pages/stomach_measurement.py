@@ -48,13 +48,14 @@ class StomachMeasurement(tk.Frame):
         threading.Thread(target=self.loop).start()
       
     def loop(self):
-        count = utils.count_column_elements(f'./data/{self.today}/result.csv','stomach_weight') 
+        count = utils.count_column_elements(f'./data/{self.today}/result.csv','stomach_weight') +1
         sensor = Sensor()
         camera = Camera()
         digital_scale = DigitalScale()
         
-        last_weight = 0
         camera.on()
+
+        camera.move_to_distance(15)
 
         while self.is_running:
             ir_value, distance = sensor.get_data()
@@ -63,26 +64,28 @@ class StomachMeasurement(tk.Frame):
             if ir_value == "0" and not self.lock:
                 voice.start()
 
-                if digital_scale.get_stable_data_length() < 2:
-                    voice.retry()
-                    self.lock = False
-                    continue
-
                 if count % 5 == 0:
                     camera.grab()
 
-                self.status_label.config(text=f'{count+1}つ目のデータを測定中')
+                self.status_label.config(text=f'{count}つ目のデータを測定中')
                 print(f'start to get data: {count}')
                 self.lock = True
 
                 folder_path = f'./data/{self.today}/images/{count}/stomach'
                 utils.make_folder(folder_path)
                 
-                status = camera.adjust_to_marker()
-                      
+                status = camera.check_ar_marker()
+  
                 if status == "camera error":
                     messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
-                    status = camera.adjust_to_marker()
+                    
+                if status == "ar marker error":
+                    print("ar marker is not detected")
+                    voice.ar_marker_alert()
+                    time.sleep(1)
+                    self.lock = False
+                    self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
+                    continue
 
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
@@ -93,16 +96,9 @@ class StomachMeasurement(tk.Frame):
 
                 data = {'stomach_weight':weight}
                 measurement.add_stomach_weight_to_file(f'./data/{self.today}/result.csv',count,data)
-                
-                #camera.move_to_distance(20)
                 count += 1
 
                 time.sleep(1)
-
-                last_weight = digital_scale.get_data()
-                
-                if not last_weight:
-                    last_weight = weight
 
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
@@ -110,14 +106,6 @@ class StomachMeasurement(tk.Frame):
                 voice.finish()
 
             else:
-                now_weight = digital_scale.get_data()
-                #print(f'{last_weight}, {now_weight}')
-                if count > 0 and now_weight and last_weight - now_weight > 1.0:
-                    print(f'clear weight: {last_weight}')
-                    digital_scale.clear_stable_data()
-                    last_weight = 0
-                    voice.remove()
-
                 digital_scale.update_stable_data()
                 time.sleep(0.1)
 

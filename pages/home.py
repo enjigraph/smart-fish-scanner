@@ -50,7 +50,7 @@ class Home(tk.Frame):
         frame =self.resize_image(frame,self.canvas.winfo_width(),self.canvas.winfo_height())
         image = Image.fromarray(frame)
         
-        self.imageTk = ImageTk.PhotoImage(image=image)        
+        self.imageTk = ImageTk.PhotoImage(image=image.rotate(180))        
         self.canvas.create_image(0,0,anchor=tk.NW, image=self.imageTk)
             
         self.after(500,self.show_camera)
@@ -93,7 +93,16 @@ class Home(tk.Frame):
             utils.make_folder(folder_path)
 
             calibration.take_images_by_manual(folder_path)
-            calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+
+            for i in range(10):
+                K, D, delete_image = calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+                if K is not None and D is not None:
+                    break
+                else:
+                    if delete_image:
+                        print(f'calibration faild. delete ./data/{self.today}/calibration/images/{delete_image}')
+                        os.remove(f'./data/{self.today}/calibration/images/{delete_image}')
+
 
         else:
             pass
@@ -108,14 +117,22 @@ class Home(tk.Frame):
             folder_path = f'./data/{self.today}/calibration/images'
             utils.make_folder(folder_path)
 
-            camera.move_to_distance(40)
+            #camera.move_to_distance(30)
            
             calibration.take_images(folder_path,['stop','forward','backward','backward','forward'],False)
 
             camera.move_stepper(-6000*4)
             
             calibration.take_images(folder_path,['stop','forward','right','backward','backward','left','forward'],True)
-            calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+            
+            for i in range(10):
+                K, D, delete_image = calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+                if K is not None and D is not None:
+                    break
+                else:
+                    if delete_image:
+                        print(f'calibration faild. delete ./data/{self.today}/calibration/images/{delete_image}')
+                        os.remove(f'./data/{self.today}/calibration/images/{delete_image}')                
 
             processing_time = time.time() - start_time
             print(f'processing_time: {processing_time}s')

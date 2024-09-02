@@ -21,4 +21,7 @@ def remove():
     pygame.mixer.music.load('./voice/remove.mp3')
     pygame.mixer.music.play()
 
+def ar_marker_alert():
+    pygame.mixer.music.load('./voice/ar_marker_alert.mp3')
+    pygame.mixer.music.play()
     

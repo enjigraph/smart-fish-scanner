@@ -1,0 +1,319 @@
+import cv2
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.signal import find_peaks
+
+def calculate_max_distance_from_point(point,contour):
+    max_distance = 0
+    farthest_point = point
+    for p in contour:
+        distance =np.linalg.norm(np.array(point) - np.array(p[0]))
+        if distance > max_distance:
+            max_distance = distance
+            farthest_point = p[0]
+    return farthest_point, max_distance
+
+def calculate_change_rates(contour):
+    change_rates = []
+    num_points = len(contour)
+    for i in range(num_points):
+        curr_point = contour[i][0]
+
+        farthest_point, max_distance = calculate_max_distance_from_point(curr_point,contour)
+        
+        dx = abs(curr_point[0] - farthest_point[0])
+        dy = abs(curr_point[1] - farthest_point[1])
+
+        if dx != 0:
+            change_rate = dy / dx
+        else:
+            change_rate = 0
+            
+        change_rates.append(change_rate)
+
+    return change_rates
+
+
+def find_significant_points(contours):
+    significant_points = []
+
+    for contour in contours:
+        for i in range(len(contour) - 1):
+            x1,y1 = contour[i][0]
+            x2,y2 = contour[i+1][0]
+            dx = abs(x2-x1)
+            dy = abs(y2-y1)
+            #print(f'{x1},{y1}. {x2},{y2}')
+            
+            if dx>dy:
+                significant_points.append((x1,y1))
+    return significant_points
+                    
+def get_full_length(frame, x_ratio, y_ratio):
+
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    
+    edges = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,75, 2)
+ 
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+    
+        max_contour = max(contours, key=cv2.contourArea)
+        cv2.drawContours(frame,[max_contour],-1, (0,255,0),1)
+
+        M = cv2.moments(max_contour)
+        cx = int(M['m10'] / M['m00'])
+        cy = int(M['m01'] / M['m00'])
+        
+        #x_coords = [point[0][0] for point in max_contour]
+        x_min = tuple(max_contour[max_contour[:,:,0].argmin()][0])
+        x_max = tuple(max_contour[max_contour[:,:,0].argmax()][0])
+
+        dist = x_ratio * (x_max[0] - x_min[0])
+        print(f'distance : {dist} mm')
+
+        cv2.line(frame, (x_min[0],230), (x_max[0],230), (0,0,255), 5)        
+        cv2.putText(frame,"Length: {: .2f} mm".format(dist), (1000,200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
+        cv2.imwrite(f'./full_length.png',frame)
+
+        return dist, x_min[0], x_max[0], frame
+    
+    else:
+        print("No contours found")
+        return None, None, None
+
+def is_point_in_contour(p,contour):
+    p_float = (float(p[0]),float(p[1]))
+    return cv2.pointPolygonTest(contour,p_float, False) > 0
+
+
+def trim_ar_region(frame):
+
+    #img = cv2.imread(image)
+    
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    parameters = cv2.aruco.DetectorParameters()
+
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+
+    corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(gray, dictionary,parameters=parameters)
+
+    frame_width_markers = cv2.aruco.drawDetectedMarkers(frame.copy(), corners, ids)
+
+    m = np.empty((4,2))
+
+    corners2 = [np.empty((1,4,2)) for _ in range(4)]
+
+    print(corners2)
+    
+    for i,c in zip(ids.ravel(), corners):
+        corners2[i] = c.copy()
+
+    m[0] = corners2[0][0][2]
+    m[1] = corners2[1][0][3]
+    m[2] = corners2[2][0][0]
+    m[3] = corners2[3][0][1]
+
+    marker_coordinates = np.float32(m)
+
+    qr_code_x_min = int((m[1][0]+m[0][0])//2 - 200)
+    qr_code_x_max = int((m[1][0]+m[0][0])//2 + 200)
+    qr_code_y_min = int(corners2[0][0][1][1] - 200)
+    qr_code_y_max = int(corners2[0][0][2][1] + 200)
+    
+    x_dis = 250  
+    y_dis = 100
+ 
+    #width, height = (x_dis*size, y_dis*size)
+    
+    width = int(np.linalg.norm(marker_coordinates[1] - marker_coordinates[0]))
+    height = int(np.linalg.norm(marker_coordinates[3] - marker_coordinates[0]))
+
+    x_ratio = x_dis / width;
+    y_ratio = y_dis / height;
+    
+    true_coordinates = np.float32([[0,0], [width,0], [width,height], [0,height]])
+
+    mat = cv2.getPerspectiveTransform(marker_coordinates, true_coordinates)
+
+    frame_trans = cv2.warpPerspective(frame, mat, (width,height))
+
+    cv2.imwrite(f'./trimmed_image.png',frame_trans)
+    print(x_ratio)
+    return frame_trans, x_ratio, y_ratio
+
+try:
+
+    frame = cv2.imread('./undistorted_image.png')
+    trimmed_frame, x_ratio, y_ratio = trim_ar_region(frame)
+    full_length, x_head, x_tail, full_length_frame = get_full_length(trimmed_frame.copy(), x_ratio, y_ratio)
+    
+    print(x_head)
+    print(x_tail)
+    hsv_img = cv2.cvtColor(trimmed_frame,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv_img,np.array([0,0,0]),np.array([180,255,35]))
+
+    result = cv2.bitwise_and(trimmed_frame,trimmed_frame,mask=mask)
+    gray_fins = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+
+    cv2.imwrite(f'./gray_fins.length.png',gray_fins[:,int(x_tail*0.8):x_tail])
+    _, thresh = cv2.threshold(gray_fins[:,int(x_tail*0.8):x_tail], 1, 255, cv2.THRESH_BINARY)
+
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    external_contours = []
+
+    for contour in contours:
+        x,y,w,h = cv2.boundingRect(contour)
+    
+        #if x > int(x_tail*0.6) and x < x_tail:
+        external_contours.append(contour)
+    max_contour = max(contours, key=cv2.contourArea)
+
+    points = np.array([point[0] for point in max_contour])
+    
+    x_coords = []
+    y_coords = []
+
+    for point in points:        
+        base_x, base_y = point
+        right_point = (base_x +1, base_y)
+        #print(right_point)
+        
+        if is_point_in_contour(right_point, max_contour):
+            cv2.circle(trimmed_frame[:,int(x_tail*0.8):x_tail],tuple(point),1,(255,0,0),-1)
+            x_coords.append(base_x)
+            y_coords.append(base_y)
+
+    cv2.imwrite(f'./head_and_scales_10.length.png',trimmed_frame[:,int(x_tail*0.8):x_tail])
+
+        
+
+    #x,y,w,h = cv2.boundingRect(max_contour)
+    #cv2.rectangle(trimmed_frame[:,int(x_tail*0.8):x_tail],(x,y),(x+w,y+h),(0,0,255),1)
+    
+    #points = np.array([point[0] for point in max_contour])
+    #unique_x = np.unique(points[:,0])
+    #max_distance = 0
+    #farthest_points = None
+    #farthest_pair = None
+
+    #for x in unique_x:
+    #    subset = points[points[:,0] == x]
+
+    #    if len(subset) > 1:
+    #        y_coords = subset[:, 1]
+    #        min_y = np.min(y_coords)
+    #        max_y = np.max(y_coords)
+    #        distance = max_y - min_y
+
+    #        if distance > max_distance:
+    #            max_distance = distance
+    #            farthest_points = (min_y, max_y)
+    #            farthest_pair = (subset[np.argmin(y_coords)],subset[np.argmax(y_coords)])
+
+                
+
+    #cv2.drawContours(trimmed_frame[:,int(x_tail*0.8):x_tail],[max_contour], -1, (0,255,0),1)
+
+    #if farthest_pair is not None:
+    #    cv2.circle(trimmed_frame[:,int(x_tail*0.8):x_tail],(int(farthest_pair[0][0]),int(farthest_pair[0][1])),10,(0,0,255),-1)
+    #    cv2.circle(trimmed_frame[:,int(x_tail*0.8):x_tail],(int(farthest_pair[1][0]),int(farthest_pair[1][1])),10,(0,0,255),-1)
+    
+    #    cv2.line(trimmed_frame[:,int(x_tail*0.8):x_tail],(int(farthest_pair[0][0]),int(farthest_pair[0][1])),(int(farthest_pair[1][0]),int(farthest_pair[1][1])),(255,0,0),2)
+        
+    #    cv2.imwrite(f'./head_and_scales_9.length.png',trimmed_frame[:,int(x_tail*0.8):x_tail])
+   
+
+    #plt.hist(x_coords, bins=50)
+    #plt.show()
+    #plt.hist(y_coords, bins=50)
+    #plt.show()
+    
+    hist, bin_edges = np.histogram(x_coords, bins=50)
+    bin_centers = 0.5*(bin_edges[:-1] + bin_edges[1:])
+    
+    peaks, _ = find_peaks(hist, distance=1)
+    top_peaks = sorted(peaks, key=lambda x:hist[x], reverse=True)[:1]
+    #print(top_peaks)
+    
+    x_ranges = [(bin_edges[peak],bin_edges[peak+1]) for peak in top_peaks]
+    #print(x_ranges)
+    vertical_bar_points = []
+
+    for x_start, x_end in x_ranges:
+        points_in_range = [point for point in max_contour if x_start <= point[0][0] < x_end]
+        vertical_bar_points.extend(points_in_range)
+
+    print(vertical_bar_points[0][0][0])
+    #min_x_point = min(vertical_bar_points, key=lambda p :p[0][0][0])
+    #max_x_point = max(vertical_bar_points, key=lambda p :p[0][0][0])
+
+    #print(min_x_point)
+    #print(max_x_point)
+
+    vetical_bar_contour = np.array(vertical_bar_points)
+
+    
+    cv2.drawContours(trimmed_frame[:,int(x_tail*0.8):x_tail],[vetical_bar_contour], -1, (0,255,0),1)       
+    cv2.imwrite(f'./head_and_scales_0.length.png',trimmed_frame[:,int(x_tail*0.8):x_tail])
+
+    #hist_y, bin_edges_y = np.histogram(y_coords, bins=50)
+    #bin_centers_y = 0.5*(bin_edges_y[:-1] + bin_edges_y[1:])
+
+    #peaks_y, _ = find_peaks(hist_y, distance=1)
+    #top_peaks_y = sorted(peaks_y, key=lambda x:hist_y[x], reverse=True)[:3]
+    #print(top_peaks_y)
+    
+    #y_ranges = [(bin_edges_y[peak],bin_edges_y[peak+1]) for peak in top_peaks_y]
+    #print(y_ranges)
+    #horizontal_bar_points = []
+    #for y_start, y_end in y_ranges:
+    #    ypoints_in_range = [point for point in max_contour if y_start <= point[0][1] < y_end]
+
+    #horizontal_bar_points.extend(ypoints_in_range)
+
+    #horizontal_bar_contour = np.array(horizontal_bar_points)
+
+    #cv2.drawContours(trimmed_frame[:,int(x_tail*0.8):x_tail],[horizontal_bar_contour], -1, (0,255,0),1)       
+    cv2.imwrite(f'./head_and_scales_4.length.png',trimmed_frame[:,int(x_tail*0.8):x_tail])
+
+
+    
+    trimmed_frame2 = trimmed_frame[:,int(x_tail*0.8):x_tail].copy()
+            
+    cv2.drawContours(trimmed_frame2,[max_contour], -1, (0,255,0),1)       
+    cv2.imwrite(f'./head_and_scales_3.length.png',trimmed_frame2)
+
+    sorted_external_contours = sorted(external_contours, key=calculate_change_rates,reverse=True)
+    significant_points = find_significant_points([sorted_external_contours[0]])
+    #print(significant_points)
+    x_min = None
+
+    for point in significant_points:
+    
+        color = hsv_img[point[1],point[0]-1]
+        color2 = hsv_img[point[1],point[0]+1]
+        if np.all(np.array([0,0,30]) < color) and  np.all(color < np.array([180,150,255])) and np.all(np.array([0,0,0]) < color2) and np.all(color2 < np.array([180,255,35])) :
+            cv2.circle(frame,point,1,(0,255,0),-1)
+
+            if not x_min or x_min > point[0]:
+                x_min = point[0]
+
+    #if not x_min:
+        #print('get_head_and_scales_length error: x_min is None')
+        
+    dist = x_ratio * (x_min - x_head)
+        
+    cv2.drawContours(trimmed_frame,significant_points, -1, (255,0,0),1)
+    #cv2.line(frame, (x_head,50), (x_min,50), (0,0,255), 1)        
+    #cv2.putText(frame,"Length: {: .2f} mm".format(dist), (1000,200), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
+        
+    cv2.imwrite(f'./head_and_scales.length.png',trimmed_frame)
+    
+except Exception as e:
+    print(f'get_head_and_scales_length error: {e}')
+        

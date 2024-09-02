@@ -7,6 +7,7 @@ import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox
 from PIL import Image,ImageTk
+import traceback
 
 import lib.measurement as measurement
 import lib.utils as utils
@@ -44,6 +45,13 @@ class Measuring(tk.Frame):
         self.species_label = tk.Label(self, text="")
         self.species_label.pack(pady=5)
 
+        tk.Label(self, text="前回の全長").pack(pady=5)
+        self.last_full_length_label = tk.Label(self, text="")
+        self.last_full_length_label.pack(pady=5)
+        tk.Label(self, text="前回の重さ").pack(pady=5)
+        self.last_weight_label = tk.Label(self, text="")
+        self.last_weight_label.pack(pady=5)
+
         self.finish_button = tk.Button(self,text="測定を終了する",command=self.stop)
         self.finish_button.pack(pady=5)
         self.return_button = tk.Button(self,text="戻る",command=self.reset)
@@ -65,17 +73,18 @@ class Measuring(tk.Frame):
         threading.Thread(target=self.loop).start()
 
     def loop(self):
-        count = sum(os.path.isdir(os.path.join(f'./data/{self.today}/images/',name)) for name in os.listdir(f'./data/{self.today}/images/'))
+        count = sum(os.path.isdir(os.path.join(f'./data/{self.today}/images/',name)) for name in os.listdir(f'./data/{self.today}/images/')) + 1
         camera = Camera()
         digital_scale = DigitalScale()
         sensor = Sensor()
        
-        last_weight = 0
         camera.on()
 
         check_weight = 0
         check_full_length = 0
 
+        camera.move_to_distance(15)
+        
         while self.is_running:
             ir_value, distance = sensor.get_data()
             #print(f'IR Value: {ir_value}, Distance: {distance}, lock:{self.lock}')
@@ -84,52 +93,53 @@ class Measuring(tk.Frame):
                 self.lock = True
                 voice.start()
 
-                if digital_scale.get_stable_data_length() < 2:
-                    voice.retry()
-                    self.lock = False
-                    continue
-
                 if count % 5 == 0:
                     camera.grab()
                 
-                self.status_label.config(text=f'{count+1}つ目のデータを測定中')
+                self.status_label.config(text=f'{count}つ目のデータを測定中')
                 print(f'start to get data :{count}')
 
                 folder_path = f'./data/{self.today}/images/{count}/full_body'
                 utils.make_folder(folder_path)
 
-                status = camera.adjust_to_marker()
+                status = camera.check_ar_marker()
   
                 if status == "camera error":
                     messagebox.showinfo("カメラの接続エラー","カメラを再接続してください。再接続のあと、「OK」を押してください。")
-                    status = camera.adjust_to_marker()
-                            
+                    
+                if status == "ar marker error":
+                    print("ar marker is not detected")
+                    voice.ar_marker_alert()
+                    time.sleep(1)
+                    self.lock = False
+                    self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
+                    continue
+
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
-                full_length, head_and_scales_length, head_and_fork_length, full_length_frame, head_and_scales_length_frame, head_and_fork_length_frame = measurement.get_length(undistorted_image,folder_path)
+                full_length, full_length_frame, thin_point_frame = measurement.get_length(undistorted_image,self.controller.shared_data.get("species",""),folder_path)
                 print(f'full_length: {full_length}mm')
-                print(f'head_and_scales_length: {head_and_scales_length}mm')
-                print(f'head_and_fork_length: {head_and_fork_length}mm')
-
-                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,f'被鱗体長: {head_and_scales_length}mm' if head_and_scales_length else None,head_and_scales_length_frame,f'尾又長: {head_and_fork_length}mm' if head_and_fork_length else None,head_and_fork_length_frame)
-                weight = digital_scale.get_weight()
+                
+                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,'thin point',thin_point_frame)
+                for i in range(10):
+                    weight = digital_scale.get_weight()
+                    if weight:
+                        break
+                    time.sleep(0.5)
                 print(f'weight: {weight}')
 
-                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'head_and_scales_length':[head_and_scales_length],'head_and_fork_length':[head_and_fork_length],'weight':[weight],'image':[folder_path]}
+                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'weight':[weight],'image':[folder_path]}
                 measurement.save(f'./data/{self.today}/result.csv',data)
 
-                if abs(check_full_length - full_length) < 2 and abs(check_weight - weight) < 2:
+                if abs(float(check_full_length) - float(full_length)) < 2 and abs(float(check_weight) - float(weight)) < 2:
                     voice.data_alert()
                     print("全長と重さが非常に近いデータが保存されました。")
                     time.sleep(5)
-                    #messagebox.showinfo("計測データに関するアラート","全長と重さが非常に近いデータが保存されました。")
                     
-                #camera.move_to_distance(20)
                 count += 1
+                self.last_full_length_label.config(text=f'{full_length}mm')
+                self.last_weight_label.config(text=f'{weight}kg')
 
-                last_weight = digital_scale.get_data()
-                if not last_weight:
-                    last_weight = weight
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
 
@@ -139,12 +149,12 @@ class Measuring(tk.Frame):
                 voice.finish()
 
             else:
-                now_weight = digital_scale.get_data()
-                if count > 0 and now_weight and last_weight - now_weight > 1.0:
-                    print(f'clear weight: {last_weight}')
-                    digital_scale.clear_stable_data()
-                    last_weight = 0
-                    voice.remove()
+                #now_weight = digital_scale.get_data()
+                #if count > 0 and now_weight and last_weight - now_weight > 1.0:
+                #    print(f'clear weight: {last_weight}')
+                #    digital_scale.clear_stable_data()
+                #    last_weight = 0
+                #    voice.remove()
                     
                 digital_scale.update_stable_data()
                 time.sleep(0.1)
@@ -165,7 +175,7 @@ class Measuring(tk.Frame):
         
         self.controller.show_home()
 
-    def show_popup(self,title,text,frame,text2,frame2,text3,frame3):
+    def show_popup(self,title,text,frame,text2,frame2):
         
         popup = tk.Toplevel(self)
         popup.title(title)
@@ -189,26 +199,12 @@ class Measuring(tk.Frame):
             canvas2 = tk.Canvas(popup,bg="lightgray",width=480,height=280)
             canvas2.pack(pady=5)
 
-            print(f'type: {frame2.dtype}')
             frame2 = cv2.cvtColor(frame2,cv2.COLOR_BGR2RGB)
             frame2 = self.resize_image(frame2,480,180)
             image2 = Image.fromarray(frame2)
-        
+            
             self.popup_imageTk2 = ImageTk.PhotoImage(image=image2)        
             canvas2.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk2)
-
-        if text3:
-            #tk.Label(popup, text=text3).pack(pady=20)
-                
-            canvas3 = tk.Canvas(popup,bg="lightgray",width=480,height=280)
-            canvas3.pack(pady=5)
-
-            frame3 = cv2.cvtColor(frame3,cv2.COLOR_BGR2RGB)
-            frame3 = self.resize_image(frame3,480,180)
-            image3 = Image.fromarray(frame3)
-        
-            self.popup_imageTk3 = ImageTk.PhotoImage(image=image3)        
-            canvas3.create_image(0,0,anchor=tk.NW, image=self.popup_imageTk3)
 
         self.after(2000, lambda: popup.destroy())
 
