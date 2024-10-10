@@ -90,6 +90,8 @@ class StomachMeasurement(tk.Frame):
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
                 frame, _, _ = measurement.trim_ar_region(undistorted_image,folder_path)
+
+                time.sleep(1)
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
                 self.show_popup('重さ',f'weight: {weight}g',frame)

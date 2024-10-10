@@ -121,6 +121,8 @@ class Measuring(tk.Frame):
                 print(f'full_length: {full_length}mm')
                 
                 self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,'thin point',thin_point_frame)
+
+                time.sleep(1)
                 for i in range(10):
                     weight = digital_scale.get_weight()
                     if weight:
