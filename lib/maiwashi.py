@@ -51,7 +51,7 @@ def get_full_length(frame,folder_path, x_ratio, y_ratio):
         print("No contours found")
         return None, None, None, None
 
-def get_thin_point(frame,contour,x_tail,folder_path):
+def get_thin_point(frame,contour,x_tail,x_ratio,folder_path):
 
     try:
         x_points = []
@@ -87,8 +87,9 @@ def get_thin_point(frame,contour,x_tail,folder_path):
         if x_peak is not None and abs(thin_x - x_peak) > 50 and abs(thin_x - x_end) < 20:
             print(f'thin_x - x_peak, {thin_x}, {x_end}')
             thin_x = min_diff_x.get(frame,contour,x_start,x_peak+2,folder_path)
-        
-        cv2.putText(frame,f'thin point: {thin_x}', (1000,100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
+
+        dist = x_ratio * thin_x - 20
+        cv2.putText(frame,"thin x: {: .2f} mm".format(dist), (1000,100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255),5)
         cv2.line(frame,(thin_x,0),(thin_x,frame.shape[0]),(0,0,255),2)
         cv2.imwrite(f'{folder_path}/thin_point.png',frame)
 
