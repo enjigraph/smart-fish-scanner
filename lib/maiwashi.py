@@ -93,7 +93,7 @@ def get_thin_point(frame,contour,x_tail,x_ratio,folder_path):
         cv2.line(frame,(thin_x,0),(thin_x,frame.shape[0]),(0,0,255),2)
         cv2.imwrite(f'{folder_path}/thin_point.png',frame)
 
-        return frame
+        return dist, frame
         
     except Exception as e:
         print(f'error: {e}')

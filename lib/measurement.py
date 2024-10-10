@@ -110,23 +110,23 @@ def get_length(frame,species,folder_path):
 
         full_length, x_tail, contour, full_length_frame = maiwashi.get_full_length(trimmed_frame.copy(),folder_path, x_ratio, y_ratio)
 
-        thin_point_frame = maiwashi.get_thin_point(trimmed_frame.copy(),contour,x_tail,x_ratio,folder_path)
+        thin_length, thin_point_frame = maiwashi.get_thin_point(trimmed_frame.copy(),contour,x_tail,x_ratio,folder_path)
     
-        return full_length, full_length_frame, thin_point_frame
+        return full_length, full_length_frame, thin_length, thin_point_frame
 
     if "カタクチイワシ(小)" in species:
         full_length, x_tail, contour, full_length_frame = katakuchiiwashi_small.get_full_length(trimmed_frame.copy(),folder_path, x_ratio, y_ratio)
 
-        thin_point_frame = katakuchiiwashi_small.get_thin_point(trimmed_frame.copy(),contour,x_tail,x_ratio,folder_path)
+        thin_length, thin_point_frame = katakuchiiwashi_small.get_thin_point(trimmed_frame.copy(),contour,x_tail,x_ratio,folder_path)
     
-        return full_length, full_length_frame, thin_point_frame
+        return full_length, full_length_frame, thin_length, thin_point_frame
 
     if "カタクチイワシ" in species:
         full_length, x_tail, contour, full_length_frame = katakuchiiwashi.get_full_length(trimmed_frame.copy(),folder_path, x_ratio, y_ratio)
 
-        thin_point_frame = katakuchiiwashi.get_thin_point(trimmed_frame.copy(),contour,x_tail,x_ratio,folder_path)
+        thin_length, thin_point_frame = katakuchiiwashi.get_thin_point(trimmed_frame.copy(),contour,x_tail,x_ratio,folder_path)
     
-        return full_length, full_length_frame, thin_point_frame
+        return full_length, full_length_frame, thin_length, thin_point_frame
 
     return None, None, None
                     

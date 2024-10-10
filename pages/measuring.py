@@ -117,10 +117,11 @@ class Measuring(tk.Frame):
 
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
-                full_length, full_length_frame, thin_point_frame = measurement.get_length(undistorted_image,self.controller.shared_data.get("species",""),folder_path)
+                full_length, full_length_frame, thin_length, thin_point_frame = measurement.get_length(undistorted_image,self.controller.shared_data.get("species",""),folder_path)
                 print(f'full_length: {full_length}mm')
+                print(f'thin_length: {thin_length}mm')
                 
-                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,'thin point',thin_point_frame)
+                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,f'くびれ位置: {thin_length}mm',thin_point_frame)
 
                 time.sleep(1)
                 for i in range(10):
@@ -130,7 +131,7 @@ class Measuring(tk.Frame):
                     time.sleep(0.5)
                 print(f'weight: {weight}')
 
-                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'weight':[weight],'image':[folder_path]}
+                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'thin_length':[thin_length],'weight':[weight],'image':[folder_path]}
                 measurement.save(f'./data/{self.today}/result.csv',data)
 
                 if abs(float(check_full_length) - float(full_length)) < 2 and abs(float(check_weight) - float(weight)) < 2:
