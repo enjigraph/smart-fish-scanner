@@ -210,54 +210,64 @@ def get_parameters(chessboard_size,square_size_mm,file_name,calibration_images_f
 
 def get_parameters_of_fisheye(chessboard_size,square_size_mm,file_name,calibration_images_folder_path):
 
-    objp = np.zeros((1, chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )
-    objp[0,:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2) * square_size_mm
-
-    objpoints = []
-    imgpoints = []
-
-    images = glob.glob(f'{calibration_images_folder_path}/*.png')
-
-    used_images_num = 0
+    delete_image = None
     
-    for image in images:
-        img = cv2.imread(image)
-        gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-        blurred_gray = cv2.GaussianBlur(gray,(5,5),0)
-        
-        ret, centers = cv2.findChessboardCorners(blurred_gray,chessboard_size,flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
-        print(f'{image} : {ret}')
-        
-        if ret:
-            used_images_num += 1
-        
-            objpoints.append(objp)
+    try:
 
-            sub_pixel_centers = cv2.cornerSubPix(gray, centers, (5,5), (-1,-1),(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
-            
-            imgpoints.append(sub_pixel_centers)
-            
-            img = cv2.drawChessboardCorners(img, chessboard_size, sub_pixel_centers, ret)
-            camera.show('img',img)
-            
-    K = np.zeros((3,3))
-    D = np.zeros((4,1))
-    rvecs = []
-    tvecs = []
-            
-    rms, _, _, _, _ = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1], K, D ,rvecs, tvecs, cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC,(cv2.TERM_CRITERIA_COUNT + cv2.TERM_CRITERIA_EPS, 100, 1e-6))
+        objp = np.zeros((1, chessboard_size[0]*chessboard_size[1], 3 ), np.float32 )
+        objp[0,:,:2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1,2) * square_size_mm
 
-    print('Used images num :',used_images_num)
-    print("RMS:",rms)
-    print("K:",K)
-    print("D:",D)
+        objpoints = []
+        imgpoints = []
+        
+        images = glob.glob(f'{calibration_images_folder_path}/*.png')
+        
+        used_images_num = 0
     
-    cv_file = cv2.FileStorage(file_name, cv2.FILE_STORAGE_WRITE)
-    cv_file.write("K", K)
-    cv_file.write("D",D)
-    cv_file.release()
+        for image in images:
+            img = cv2.imread(image)
+            gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+            blurred_gray = cv2.GaussianBlur(gray,(5,5),0)
+        
+            ret, centers = cv2.findChessboardCorners(blurred_gray,chessboard_size,flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
+            print(f'{image} : {ret}')
+        
+            if ret:
+                used_images_num += 1
+                
+                objpoints.append(objp)
+                
+                sub_pixel_centers = cv2.cornerSubPix(gray, centers, (5,5), (-1,-1),(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001))
+            
+                imgpoints.append(sub_pixel_centers)
+            
+                img = cv2.drawChessboardCorners(img, chessboard_size, sub_pixel_centers, ret)
+                camera.show('img',img)
+            
+                delete_image = os.path.basename(image)
+                
+        K = np.zeros((3,3))
+        D = np.zeros((4,1))
+        rvecs = []
+        tvecs = []
+            
+        rms, _, _, _, _ = cv2.fisheye.calibrate(objpoints, imgpoints, gray.shape[::-1], K, D ,rvecs, tvecs, cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC,(cv2.TERM_CRITERIA_COUNT + cv2.TERM_CRITERIA_EPS, 100, 1e-6))
 
-    return K, D
+        print('Used images num :',used_images_num)
+        print("RMS:",rms)
+        print("K:",K)
+        print("D:",D)
+    
+        cv_file = cv2.FileStorage(file_name, cv2.FILE_STORAGE_WRITE)
+        cv_file.write("K", K)
+        cv_file.write("D",D)
+        cv_file.release()
+
+        return K, D, delete_image
+
+    except Exception as e: 
+        print(f'get_parameters_of_fisheye error: {e}')
+        return None, None, delete_image
 
 def test(folder_path):
     

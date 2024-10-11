@@ -48,7 +48,7 @@ class StomachMeasurement(tk.Frame):
         threading.Thread(target=self.loop).start()
       
     def loop(self):
-        count = utils.count_column_elements(f'./data/{self.today}/result.csv','stomach_weight') 
+        count = utils.count_column_elements(f'./data/{self.today}/result.csv','stomach_weight') + 1
         sensor = Sensor()
         camera = Camera()
         digital_scale = DigitalScale()
@@ -71,7 +71,7 @@ class StomachMeasurement(tk.Frame):
                 if count % 5 == 0:
                     camera.grab()
 
-                self.status_label.config(text=f'{count+1}つ目のデータを測定中')
+                self.status_label.config(text=f'{count}つ目のデータを測定中')
                 print(f'start to get data: {count}')
                 self.lock = True
 

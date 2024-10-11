@@ -66,10 +66,10 @@ class DigitalScale:
 
     def update_stable_data(self):
 
-        if len(self.recent_data) < 5:
+        if len(self.recent_data) < 3:
             return 0
         
-        if np.std(self.recent_data[-5:]) < 0.1:
+        if np.std(self.recent_data[-3:]) < 0.1:
 
             mean_value = np.mean(self.recent_data)
 

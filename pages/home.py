@@ -93,7 +93,15 @@ class Home(tk.Frame):
             utils.make_folder(folder_path)
 
             calibration.take_images_by_manual(folder_path)
-            calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+
+            for i in range(10):
+                K, D, delete_image = calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+                if K is not None and D is not None:
+                    break
+                else:
+                    if delete_image:
+                        print(f'calibration faild. delete ./data/{self.today}/calibration/images/{delete_image}')
+                        os.remove(f'./data/{self.today}/calibration/images/{delete_image}')
 
         else:
             pass
@@ -115,8 +123,16 @@ class Home(tk.Frame):
             camera.move_stepper(-6000*4)
             
             calibration.take_images(folder_path,['stop','forward','right','backward','backward','left','forward'],True)
-            calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
 
+            for i in range(10):
+                K, D, delete_image = calibration.get_parameters_of_fisheye((7,10),1,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
+                if K is not None and D is not None:
+                    break
+                else:
+                    if delete_image:
+                        print(f'calibration faild. delete ./data/{self.today}/calibration/images/{delete_image}')
+                        os.remove(f'./data/{self.today}/calibration/images/{delete_image}')
+                
             processing_time = time.time() - start_time
             print(f'processing_time: {processing_time}s')
             messagebox.showinfo("自動キャリブレーション",'キャリブレーションが完了しました。')

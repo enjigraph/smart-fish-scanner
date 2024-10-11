@@ -44,6 +44,13 @@ class Measuring(tk.Frame):
         self.species_label = tk.Label(self, text="")
         self.species_label.pack(pady=5)
 
+        tk.Label(self, text="前回の全長").pack(pady=5)
+        self.last_full_length_label = tk.Label(self, text="")
+        self.last_full_length_label.pack(pady=5)
+        tk.Label(self, text="前回の重さ").pack(pady=5)
+        self.last_weight_label = tk.Label(self, text="")
+        self.last_weight_label.pack(pady=5)
+        
         self.finish_button = tk.Button(self,text="測定を終了する",command=self.stop)
         self.finish_button.pack(pady=5)
         self.return_button = tk.Button(self,text="戻る",command=self.reset)
@@ -65,7 +72,7 @@ class Measuring(tk.Frame):
         threading.Thread(target=self.loop).start()
 
     def loop(self):
-        count = sum(os.path.isdir(os.path.join(f'./data/{self.today}/images/',name)) for name in os.listdir(f'./data/{self.today}/images/'))
+        count = sum(os.path.isdir(os.path.join(f'./data/{self.today}/images/',name)) for name in os.listdir(f'./data/{self.today}/images/')) + 1
         camera = Camera()
         digital_scale = DigitalScale()
         sensor = Sensor()
@@ -75,6 +82,9 @@ class Measuring(tk.Frame):
 
         check_weight = 0
         check_full_length = 0
+
+        self.last_full_length_label.config(text=last_full_length+"mm")
+        self.last_weight_label.config(text=last_weight+"kg")
 
         while self.is_running:
             ir_value, distance = sensor.get_data()
@@ -92,7 +102,7 @@ class Measuring(tk.Frame):
                 if count % 5 == 0:
                     camera.grab()
                 
-                self.status_label.config(text=f'{count+1}つ目のデータを測定中')
+                self.status_label.config(text=f'{count}つ目のデータを測定中')
                 print(f'start to get data :{count}')
 
                 folder_path = f'./data/{self.today}/images/{count}/full_body'
@@ -106,16 +116,14 @@ class Measuring(tk.Frame):
                             
                 original_image = measurement.get_image(f'{folder_path}/original_image.png')
                 undistorted_image = measurement.undistort_fisheye_image(original_image,f'./data/{self.today}/calibration/calibration.yaml',folder_path)
-                full_length, head_and_scales_length, head_and_fork_length, full_length_frame, head_and_scales_length_frame, head_and_fork_length_frame = measurement.get_length(undistorted_image,folder_path)
+                full_length, full_length_frame,thin_point_frame = measurement.get_length(undistorted_image,self.controller.shared_data.get("species",""),folder_path)
                 print(f'full_length: {full_length}mm')
-                print(f'head_and_scales_length: {head_and_scales_length}mm')
-                print(f'head_and_fork_length: {head_and_fork_length}mm')
 
-                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame,f'被鱗体長: {head_and_scales_length}mm' if head_and_scales_length else None,head_and_scales_length_frame,f'尾又長: {head_and_fork_length}mm' if head_and_fork_length else None,head_and_fork_length_frame)
+                self.show_popup('測定結果',f'全長: {full_length}mm',full_length_frame)
                 weight = digital_scale.get_weight()
                 print(f'weight: {weight}')
 
-                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'head_and_scales_length':[head_and_scales_length],'head_and_fork_length':[head_and_fork_length],'weight':[weight],'image':[folder_path]}
+                data = {'count':[count],'species':[self.controller.shared_data.get("species","")], 'measurement_date':[self.controller.shared_data.get("measurement_date","")],'capture_date':[self.controller.shared_data.get("capture_date","")],'capture_location':[self.controller.shared_data.get("capture_location","")],'latitude':[self.controller.shared_data.get("latitude","")],'longitude':[self.controller.shared_data.get("longitude","")],'full_length':[full_length],'weight':[weight],'image':[folder_path]}
                 measurement.save(f'./data/{self.today}/result.csv',data)
 
                 if abs(check_full_length - full_length) < 2 and abs(check_weight - weight) < 2:
@@ -127,12 +135,20 @@ class Measuring(tk.Frame):
                 #camera.move_to_distance(20)
                 count += 1
 
-                last_weight = digital_scale.get_data()
-                if not last_weight:
-                    last_weight = weight
+                for i in range(10):
+                    last_weight = digital_scale.get_data()
+                    if last_weight:
+                        break
+
+                    time.sleep(0.5)
+                    #last_weight = weight
+
                 self.lock = False
                 self.status_label.config(text="測定開始の準備ができました。\n赤外線センサーで開始のタイミングを指示してください。")
-
+                
+                self.last_full_length_label.config(text=full_length+"mm")
+                self.last_weight_label.config(text=weight+"kg")
+                
                 check_weight = weight
                 check_full_length = full_length
                 
